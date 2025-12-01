@@ -5,7 +5,7 @@ import ProtectedRoute from "../routes/ProtectedRoute";
 
 import Header from "../components/Header";
 
-import Home from "../pages/Home";
+
 import Login from "../pages/Login";
 import Events from "../pages/Events";
 import EventDetail from "../pages/EventDetail";
@@ -30,7 +30,7 @@ export default function MainLayout() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />

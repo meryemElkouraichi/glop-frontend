@@ -1,40 +1,35 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Header() {
-  const { user, login, logout } = useAuth();
-  const [mockId, setMockId] = useState("suzanne");
+  const { user, logout } = useAuth();
 
   return (
     <header className="flex justify-between p-4 bg-white shadow">
-      <div>
-        <Link to="/" className="font-bold">CiblOrgaSport</Link>
-        <nav className="ml-4 inline-block space-x-2">
-          <Link to="/events">Événements</Link>
-          {user?.role === "commissaire" && <Link to="/commissaire">Commissaire</Link>}
-          {user?.role === "athlete" && <Link to="/athlete">Athlète</Link>}
-          {user?.role === "volunteer" && <Link to="/volunteer">Volontaire</Link>}
-          {user?.role === "admin" && <Link to="/admin">Admin</Link>}
-        </nav>
-      </div>
+      <Link to="/" className="text-xl font-bold">
+        CiblOrgaSport
+      </Link>
+
       <div>
         {user ? (
           <>
-            <span>{user.name} ({user.role})</span>
-            <button onClick={logout} className="ml-2 btn">Déconnexion</button>
+            <span className="mr-4 font-semibold">
+              Bonjour, {user.username} !
+            </span>
+            <button
+              onClick={logout}
+              className="px-4 py-2 bg-red-500 text-white rounded"
+            >
+              Se déconnecter
+            </button>
           </>
         ) : (
-          <div>
-            <select value={mockId} onChange={(e) => setMockId(e.target.value)}>
-              <option value="suzanne">Spectateur</option>
-              <option value="leon">Athlète</option>
-              <option value="arthur">Commissaire</option>
-              <option value="hector">Volontaire</option>
-              <option value="marius">Admin</option>
-            </select>
-            <button onClick={() => login(mockId)} className="ml-2 btn">Se connecter</button>
-          </div>
+          <Link
+            to="/login"
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            Connexion
+          </Link>
         )}
       </div>
     </header>
