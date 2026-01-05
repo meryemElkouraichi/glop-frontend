@@ -4,12 +4,17 @@ import { useAuth } from "../context/AuthContext";
 export default function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (
+    allowedRoles &&
+    !user.roles.some(role => allowedRoles.includes(role))
+  ) {
     return (
       <div className="p-6 text-red-600">
-        Accès refusé pour le rôle <strong>{user.role}</strong>.
+        Accès refusé pour vos rôles : <strong>{user.roles.join(", ")}</strong>
       </div>
     );
   }

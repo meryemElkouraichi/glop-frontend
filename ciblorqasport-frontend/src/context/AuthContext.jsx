@@ -8,23 +8,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem("user");
-      }
-    }
+    if (stored) setUser(JSON.parse(stored));
   }, []);
 
-  const loginWithId = async (userId) => {
+  const login = async (email, password) => {
     const res = await apiFetch("/auth/login", {
       method: "POST",
-      data: { userId },
+      data: { email, password },
     });
-    const loggedUser = res.data.user;
-    setUser(loggedUser);
-    localStorage.setItem("user", JSON.stringify(loggedUser));
+
+    const userData = res.data;
+    setUser(userData);
+    localStorage.setItem("user", JSON.stringify(userData));
+
+    return userData;
   };
 
   const logout = () => {
@@ -33,7 +30,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginWithId, logout }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

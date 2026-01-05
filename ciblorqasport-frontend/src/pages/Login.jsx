@@ -1,106 +1,94 @@
 // src/pages/Login.jsx
-import { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom"; // <-- ajoute Link
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { loginWithId } = useContext(AuthContext);
-  const [userId, setUserId] = useState("");
-  const [role, setRole] = useState("spectator");
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
-    if (!userId.trim()) {
-      setError("Veuillez entrer un nom d'utilisateur");
-      return;
-    }
+    setError("");
 
     try {
-      await loginWithId(userId);
-    } catch {
-      setError("Erreur lors de la connexion");
-      return;
-    }
+      const user = await login(email, password);
 
-    // Redirige en fonction du rôle sélectionné.
-    switch (role) {
-      case "admin":
-        navigate("/admin");
-        break;
-      case "athlete":
-        navigate("/athlete");
-        break;
-      case "commissaire":
-        navigate("/commissaire");
-        break;
-      case "volunteer":
-        navigate("/volunteer");
-        break;
-      default:
-        navigate("/spectator");
+      const role = user.roles[0];
+
+      switch (role) {
+        case "ADMIN":
+          navigate("/admin");
+          break;
+        case "ATHLETE":
+          navigate("/athlete");
+          break;
+        case "COMMISSAIRE":
+          navigate("/commissaire");
+          break;
+        case "VOLUNTEER":
+          navigate("/volunteer");
+          break;
+        default:
+          navigate("/spectator");
+      }
+    } catch (err) {
+      setError("Email ou mot de passe incorrect");
     }
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>CiblOrgaSport - Connexion</h1>
+    <div className="max-w-md mx-auto mt-24 bg-white p-6 rounded shadow">
+      <h1 className="text-xl font-bold text-center mb-6">Connexion CiblOrgaSport</h1>
 
-      <form onSubmit={handleLogin} style={styles.form}>
-        <label style={styles.label}>Nom d'utilisateur</label>
-        <input
-          type="text"
-          placeholder="Entrez votre nom"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          style={styles.input}
-        />
+      <form onSubmit={handleLogin} className="space-y-4">
+        {/* Email */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Email</label>
+          <input
+            type="email"
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
 
-        <label style={styles.label}>Rôle</label>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          style={styles.select}
+        {/* Mot de passe */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Mot de passe</label>
+          <input
+            type="password"
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Message d'erreur */}
+        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+
+        {/* Bouton de connexion */}
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
         >
-          <option value="spectator">Spectateur / Spectatrice</option>
-          <option value="athlete">Athlète</option>
-          {/* Le rôle "commissaire" remplace l'ancienne valeur "referee" */}
-          <option value="commissaire">Commissaire sportif</option>
-          <option value="volunteer">Volontaire</option>
-          <option value="admin">Administrateur</option>
-        </select>
-
-        {error && <p style={styles.error}>{error}</p>}
-
-        <button type="submit" style={styles.button}>Se connecter</button>
+          Se connecter
+        </button>
       </form>
+
+      {/* Lien vers inscription */}
+      <p className="text-center text-sm mt-4">
+        Pas encore de compte ?{" "}
+        <Link to="/register" className="text-blue-600 underline">
+          Inscrivez-vous
+        </Link>
+      </p>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: "400px",
-    margin: "100px auto",
-    padding: "30px",
-    border: "1px solid #ccc",
-    borderRadius: "10px",
-    backgroundColor: "#fff",
-    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-  },
-  title: { textAlign: "center", marginBottom: "20px" },
-  form: { display: "flex", flexDirection: "column", gap: "15px" },
-  label: { fontWeight: "bold" },
-  input: { padding: "8px" },
-  select: { padding: "8px" },
-  button: {
-    backgroundColor: "#0d6efd",
-    color: "white",
-    padding: "10px",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  error: { color: "red", textAlign: "center" },
-};

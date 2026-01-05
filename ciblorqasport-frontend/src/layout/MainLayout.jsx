@@ -2,11 +2,14 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
+import { useAuth } from "../context/AuthContext";
+
 import Header from "../components/Header";
 import ProtectedRoute from "../routes/ProtectedRoute";
 
 import Home from "../pages/Home";
 import Login from "../pages/Login";
+import Register from "../pages/Register";
 import Events from "../pages/Events";
 import EventDetail from "../pages/EventDetail";
 import MapView from "../components/MapView";
@@ -15,7 +18,7 @@ import Profile from "../pages/Profile";
 import Notifications from "../pages/Notifications";
 import Tickets from "../pages/Tickets";
 
-// Rôles
+// Dashboards par rôle
 import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
 import AthleteDashboard from "../pages/roles/AthleteDashboard";
 import CommissairePanel from "../pages/roles/CommissairePanel";
@@ -23,25 +26,29 @@ import VolunteerSchedule from "../pages/roles/VolunteerSchedule";
 import AdminPanel from "../pages/roles/AdminPanel";
 
 export default function MainLayout() {
+  const { user } = useAuth(); // Pour savoir si l'utilisateur est connecté
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      <Header />
+      {/* Header visible seulement si connecté */}
+      {user && <Header />}
 
       <main className="flex-1 max-w-5xl mx-auto w-full">
         <Routes>
           {/* Public */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/security" element={<SecurityAlerts />} />
 
-          {/* Notifications + profil */}
+          {/* Routes protégées - Notifications et Profil */}
           <Route
             path="/notifications"
             element={
-              <ProtectedRoute allowedRoles={["spectator","athlete","commissaire","volunteer","admin"]}>
+              <ProtectedRoute allowedRoles={["spectator", "athlete", "commissaire", "volunteer", "admin"]}>
                 <Notifications />
               </ProtectedRoute>
             }
@@ -50,7 +57,7 @@ export default function MainLayout() {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute allowedRoles={["spectator","athlete","commissaire","volunteer","admin"]}>
+              <ProtectedRoute allowedRoles={["spectator", "athlete", "commissaire", "volunteer", "admin"]}>
                 <Profile />
               </ProtectedRoute>
             }
@@ -112,7 +119,8 @@ export default function MainLayout() {
             }
           />
 
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
