@@ -1,7 +1,6 @@
 // src/layout/MainLayout.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-
 import { useAuth } from "../context/AuthContext";
 
 import Header from "../components/Header";
@@ -26,17 +25,29 @@ import VolunteerSchedule from "../pages/roles/VolunteerSchedule";
 import AdminPanel from "../pages/roles/AdminPanel";
 
 export default function MainLayout() {
-  const { user } = useAuth(); // Pour savoir si l'utilisateur est connecté
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      {/* Header visible seulement si connecté */}
-      {user && <Header />}
+      <Header />
 
       <main className="flex-1 max-w-5xl mx-auto w-full">
         <Routes>
+          {/* Route par défaut / */}
+          <Route
+            path="/"
+            element={
+              user ? (
+                // Si l'utilisateur est connecté, redirige vers /home
+                <Navigate to="/home" replace />
+              ) : (
+                <Login />
+              )
+            }
+          />
+
           {/* Public */}
-          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/events" element={<Events />} />
@@ -44,20 +55,19 @@ export default function MainLayout() {
           <Route path="/map" element={<MapView />} />
           <Route path="/security" element={<SecurityAlerts />} />
 
-          {/* Routes protégées - Notifications et Profil */}
+          {/* Notifications + profil (tous les rôles) */}
           <Route
             path="/notifications"
             element={
-              <ProtectedRoute allowedRoles={["spectator", "athlete", "commissaire", "volunteer", "admin"]}>
+              <ProtectedRoute allowedRoles={["spectator","athlete","commissaire","volunteer","admin"]}>
                 <Notifications />
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/profile"
             element={
-              <ProtectedRoute allowedRoles={["spectator", "athlete", "commissaire", "volunteer", "admin"]}>
+              <ProtectedRoute allowedRoles={["spectator","athlete","commissaire","volunteer","admin"]}>
                 <Profile />
               </ProtectedRoute>
             }
@@ -82,7 +92,6 @@ export default function MainLayout() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/athlete"
             element={
@@ -91,7 +100,6 @@ export default function MainLayout() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/commissaire"
             element={
@@ -100,7 +108,6 @@ export default function MainLayout() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/volunteer"
             element={
@@ -109,7 +116,6 @@ export default function MainLayout() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/admin"
             element={

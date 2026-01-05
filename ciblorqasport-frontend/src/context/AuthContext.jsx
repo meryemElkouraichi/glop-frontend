@@ -1,14 +1,22 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem("user");
+      }
+    }
   }, []);
 
   const login = async (email, password) => {
@@ -17,16 +25,16 @@ export function AuthProvider({ children }) {
       data: { email, password },
     });
 
-    const userData = res.data;
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-
-    return userData;
+    const loggedUser = res.data;
+    setUser(loggedUser);
+    localStorage.setItem("user", JSON.stringify(loggedUser));
+    return loggedUser;
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
+    navigate("/login", { replace: true }); // 🔹 redirection vers login
   };
 
   return (
