@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
+import { ROLES } from "../constants/roles";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -11,12 +12,13 @@ export default function Register() {
     prenom: "",
     nom: "",
     telephone: "",
-    role: "ROLE_USER",
+    role: "", // valeur vide pour forcer choix
     consentement: false,
   });
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -31,10 +33,18 @@ export default function Register() {
     setError("");
     setSuccess("");
 
+    // Vérifications simples
+    if (!form.role) {
+      setError("Vous devez sélectionner un rôle.");
+      return;
+    }
+
     if (!form.consentement) {
       setError("Vous devez accepter les conditions.");
       return;
     }
+
+    setLoading(true);
 
     try {
       await apiFetch("/auth/register", {
@@ -43,10 +53,11 @@ export default function Register() {
       });
 
       setSuccess("Compte créé avec succès !");
-      setTimeout(() => navigate("/login"), 1500);
-
+      setTimeout(() => navigate("/login", { replace: true }), 1500);
     } catch (err) {
       setError("Erreur lors de la création du compte");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,6 +74,7 @@ export default function Register() {
           value={form.email}
           onChange={handleChange}
           className="w-full border px-3 py-2 rounded"
+          disabled={loading}
         />
 
         <input
@@ -73,6 +85,7 @@ export default function Register() {
           value={form.password}
           onChange={handleChange}
           className="w-full border px-3 py-2 rounded"
+          disabled={loading}
         />
 
         <input
@@ -83,6 +96,7 @@ export default function Register() {
           value={form.prenom}
           onChange={handleChange}
           className="w-full border px-3 py-2 rounded"
+          disabled={loading}
         />
 
         <input
@@ -93,6 +107,7 @@ export default function Register() {
           value={form.nom}
           onChange={handleChange}
           className="w-full border px-3 py-2 rounded"
+          disabled={loading}
         />
 
         <input
@@ -103,6 +118,7 @@ export default function Register() {
           value={form.telephone}
           onChange={handleChange}
           className="w-full border px-3 py-2 rounded"
+          disabled={loading}
         />
 
         <select
@@ -110,11 +126,16 @@ export default function Register() {
           value={form.role}
           onChange={handleChange}
           className="w-full border px-3 py-2 rounded"
+          disabled={loading}
         >
-          <option value="ROLE_USER">Spectateur</option>
-          <option value="ROLE_ATHLETE">Athlète</option>
-          <option value="ROLE_COMMISSAIRE">Commissaire</option>
-          <option value="ROLE_VOLUNTEER">Volontaire</option>
+          <option value="" disabled>
+            Choisissez un rôle
+          </option>
+          <option value={ROLES.SPECTATEUR}>{ROLES.SPECTATEUR}</option>
+          <option value={ROLES.ATHLETE}>{ROLES.ATHLETE}</option>
+          <option value={ROLES.COMMISSAIRE}>{ROLES.COMMISSAIRE}</option>
+          <option value={ROLES.VOLONTAIRE}>{ROLES.VOLONTAIRE}</option>
+          <option value={ROLES.ADMIN}>{ROLES.ADMIN}</option>
         </select>
 
         <label className="flex items-center space-x-2 text-sm">
@@ -123,6 +144,7 @@ export default function Register() {
             name="consentement"
             checked={form.consentement}
             onChange={handleChange}
+            disabled={loading}
           />
           <span>J’accepte les conditions d’utilisation</span>
         </label>
@@ -132,9 +154,10 @@ export default function Register() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded"
+          className="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+          disabled={loading}
         >
-          S’inscrire
+          {loading ? "Création en cours..." : "S’inscrire"}
         </button>
       </form>
     </div>

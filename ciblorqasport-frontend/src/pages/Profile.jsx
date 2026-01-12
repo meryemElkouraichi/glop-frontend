@@ -7,11 +7,14 @@ export default function Profile() {
   return (
     <div className="p-6">
       <h2 className="text-xl font-semibold mb-3">Mon profil</h2>
-      <p><strong>Identifiant :</strong> {user.id}</p>
-      <p><strong>Nom :</strong> {user.name}</p>
-      <p><strong>Rôle :</strong> {user.role}</p>
+
+      <p><strong>Identifiant :</strong> {user.email}</p>
+      <p><strong>Prénom :</strong> {user.prenom}</p>
+      <p><strong>Nom :</strong> {user.nom}</p>
+      <p><strong>Rôles :</strong> {user.roles.join(", ")}</p>
+
       <p className="mt-3 text-sm text-gray-500">
-        Vos informations personnelles sont traitées conformément au RGPD. 
+        Vos informations personnelles sont traitées conformément au RGPD.
         Vous pouvez à tout moment consulter et gérer vos préférences de confidentialité.
       </p>
     </div>

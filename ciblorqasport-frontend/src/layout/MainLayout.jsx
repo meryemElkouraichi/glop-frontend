@@ -21,8 +21,10 @@ import Tickets from "../pages/Tickets";
 import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
 import AthleteDashboard from "../pages/roles/AthleteDashboard";
 import CommissairePanel from "../pages/roles/CommissairePanel";
-import VolunteerSchedule from "../pages/roles/VolunteerSchedule";
-import AdminPanel from "../pages/roles/AdminPanel";
+import VolontaireSchedule from "../pages/roles/VolunteerSchedule";
+import AdministrateurPanel from "../pages/roles/AdminPanel";
+
+import { ROLES } from "../constants/roles";
 
 export default function MainLayout() {
   const { user } = useAuth();
@@ -33,16 +35,11 @@ export default function MainLayout() {
 
       <main className="flex-1 max-w-5xl mx-auto w-full">
         <Routes>
-          {/* Route par défaut / */}
+          {/* Route par défaut */}
           <Route
             path="/"
             element={
-              user ? (
-                // Si l'utilisateur est connecté, redirige vers /home
-                <Navigate to="/home" replace />
-              ) : (
-                <Login />
-              )
+              user ? <Navigate to="/home" replace /> : <Login />
             }
           />
 
@@ -55,19 +52,36 @@ export default function MainLayout() {
           <Route path="/map" element={<MapView />} />
           <Route path="/security" element={<SecurityAlerts />} />
 
-          {/* Notifications + profil (tous les rôles) */}
+          {/* Notifications + profil (tous les rôles connectés) */}
           <Route
             path="/notifications"
             element={
-              <ProtectedRoute allowedRoles={["spectator","athlete","commissaire","volunteer","admin"]}>
+              <ProtectedRoute
+                allowedRoles={[
+                  ROLES.SPECTATEUR,
+                  ROLES.ATHLETE,
+                  ROLES.COMMISSAIRE,
+                  ROLES.VOLONTAIRE,
+                  ROLES.ADMIN,
+                ]}
+              >
                 <Notifications />
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/profile"
             element={
-              <ProtectedRoute allowedRoles={["spectator","athlete","commissaire","volunteer","admin"]}>
+              <ProtectedRoute
+                allowedRoles={[
+                  ROLES.SPECTATEUR,
+                  ROLES.ATHLETE,
+                  ROLES.COMMISSAIRE,
+                  ROLES.VOLONTAIRE,
+                  ROLES.ADMIN,
+                ]}
+              >
                 <Profile />
               </ProtectedRoute>
             }
@@ -77,50 +91,57 @@ export default function MainLayout() {
           <Route
             path="/tickets"
             element={
-              <ProtectedRoute allowedRoles={["spectator"]}>
+              <ProtectedRoute allowedRoles={[ROLES.SPECTATEUR]}>
                 <Tickets />
               </ProtectedRoute>
             }
           />
 
-          {/* Dashboards par rôle */}
           <Route
-            path="/spectator"
+            path="/spectateur"
             element={
-              <ProtectedRoute allowedRoles={["spectator"]}>
+              <ProtectedRoute allowedRoles={[ROLES.SPECTATEUR]}>
                 <SpectatorDashboard />
               </ProtectedRoute>
             }
           />
+
+          {/* Athlete */}
           <Route
             path="/athlete"
             element={
-              <ProtectedRoute allowedRoles={["athlete"]}>
+              <ProtectedRoute allowedRoles={[ROLES.ATHLETE]}>
                 <AthleteDashboard />
               </ProtectedRoute>
             }
           />
+
+          {/* Commissaire */}
           <Route
             path="/commissaire"
             element={
-              <ProtectedRoute allowedRoles={["commissaire"]}>
+              <ProtectedRoute allowedRoles={[ROLES.COMMISSAIRE]}>
                 <CommissairePanel />
               </ProtectedRoute>
             }
           />
+
+          {/* Volontaire */}
           <Route
-            path="/volunteer"
+            path="/volontaire"
             element={
-              <ProtectedRoute allowedRoles={["volunteer"]}>
-                <VolunteerSchedule />
+              <ProtectedRoute allowedRoles={[ROLES.VOLONTAIRE]}>
+                <VolontaireSchedule />
               </ProtectedRoute>
             }
           />
+
+          {/* Administrateur */}
           <Route
-            path="/admin"
+            path="/administrateur"
             element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AdminPanel />
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <AdministrateurPanel />
               </ProtectedRoute>
             }
           />

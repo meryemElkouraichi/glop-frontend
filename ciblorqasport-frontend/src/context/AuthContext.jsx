@@ -4,6 +4,19 @@ import { apiFetch } from "../api/apiClient";
 
 export const AuthContext = createContext();
 
+const normalizeUser = (user) => {
+  if (!user) return null;
+
+  return {
+    ...user,
+    roles: Array.isArray(user.roles)
+      ? user.roles
+      : user.roles
+      ? [user.roles]
+      : [],
+  };
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -12,7 +25,7 @@ export function AuthProvider({ children }) {
     const stored = localStorage.getItem("user");
     if (stored) {
       try {
-        setUser(JSON.parse(stored));
+        setUser(normalizeUser(JSON.parse(stored)));
       } catch {
         localStorage.removeItem("user");
       }
@@ -25,7 +38,7 @@ export function AuthProvider({ children }) {
       data: { email, password },
     });
 
-    const loggedUser = res.data;
+    const loggedUser = normalizeUser(res.data);
     setUser(loggedUser);
     localStorage.setItem("user", JSON.stringify(loggedUser));
     return loggedUser;
@@ -34,7 +47,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
-    navigate("/login", { replace: true }); // 🔹 redirection vers login
+    navigate("/login", { replace: true });
   };
 
   return (

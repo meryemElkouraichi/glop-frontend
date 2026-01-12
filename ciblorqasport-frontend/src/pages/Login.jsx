@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { ROLES } from "../constants/roles";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,16 +10,41 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
-      await login(email, password);
-      navigate("/home"); // tous les utilisateurs vont sur /home
-    } catch {
+      const user = await login(email, password);
+
+      const role = user.roles[0];
+
+      switch (role) {
+        case ROLES.SPECTATEUR:
+          navigate("/spectateur", { replace: true });
+          break;
+        case ROLES.ATHLETE:
+          navigate("/athlete", { replace: true });
+          break;
+        case ROLES.COMMISSAIRE:
+          navigate("/commissaire", { replace: true });
+          break;
+        case ROLES.VOLONTAIRE:
+          navigate("/volontaire", { replace: true });
+          break;
+        case ROLES.ADMIN:
+          navigate("/administrateur", { replace: true });
+          break;
+        default:
+          navigate("/home", { replace: true });
+      }
+    } catch (err) {
       setError("Email ou mot de passe incorrect");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -37,6 +63,7 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
 
@@ -48,6 +75,7 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
 
@@ -55,15 +83,17 @@ export default function Login() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded mt-2"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded mt-2 disabled:opacity-50"
         >
-          Se connecter
+          {loading ? "Connexion..." : "Se connecter"}
         </button>
 
         <button
           type="button"
           className="w-full bg-gray-200 text-black py-2 rounded mt-2"
           onClick={() => navigate("/register")}
+          disabled={loading}
         >
           S'inscrire
         </button>
