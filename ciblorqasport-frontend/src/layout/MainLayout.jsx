@@ -18,8 +18,8 @@ import Notifications from "../pages/Notifications";
 import Tickets from "../pages/Tickets";
 
 // Dashboards par rôle
-import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
 import AthleteDashboard from "../pages/roles/AthleteDashboard";
+import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
 import CommissairePanel from "../pages/roles/CommissairePanel";
 import VolontaireSchedule from "../pages/roles/VolunteerSchedule";
 import AdministrateurPanel from "../pages/roles/AdminPanel";
@@ -28,6 +28,14 @@ import { ROLES } from "../constants/roles";
 
 export default function MainLayout() {
   const { user } = useAuth();
+
+  const allRoles = [
+    ROLES.SPECTATEUR,
+    ROLES.ATHLETE,
+    ROLES.COMMISSAIRE,
+    ROLES.VOLONTAIRE,
+    ROLES.ADMIN,
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -38,12 +46,10 @@ export default function MainLayout() {
           {/* Route par défaut */}
           <Route
             path="/"
-            element={
-              user ? <Navigate to="/home" replace /> : <Login />
-            }
+            element={user ? <Navigate to="/home" replace /> : <Login />}
           />
 
-          {/* Public */}
+          {/* Pages publiques */}
           <Route path="/home" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -52,19 +58,11 @@ export default function MainLayout() {
           <Route path="/map" element={<MapView />} />
           <Route path="/security" element={<SecurityAlerts />} />
 
-          {/* Notifications + profil (tous les rôles connectés) */}
+          {/* Notifications et profil (tous les rôles connectés) */}
           <Route
             path="/notifications"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  ROLES.SPECTATEUR,
-                  ROLES.ATHLETE,
-                  ROLES.COMMISSAIRE,
-                  ROLES.VOLONTAIRE,
-                  ROLES.ADMIN,
-                ]}
-              >
+              <ProtectedRoute allowedRoles={allRoles}>
                 <Notifications />
               </ProtectedRoute>
             }
@@ -73,25 +71,17 @@ export default function MainLayout() {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  ROLES.SPECTATEUR,
-                  ROLES.ATHLETE,
-                  ROLES.COMMISSAIRE,
-                  ROLES.VOLONTAIRE,
-                  ROLES.ADMIN,
-                ]}
-              >
+              <ProtectedRoute allowedRoles={allRoles}>
                 <Profile />
               </ProtectedRoute>
             }
           />
 
-          {/* Spectateur */}
+          {/* Section Spectateur (accessible à tous les rôles) */}
           <Route
             path="/tickets"
             element={
-              <ProtectedRoute allowedRoles={[ROLES.SPECTATEUR]}>
+              <ProtectedRoute allowedRoles={allRoles}>
                 <Tickets />
               </ProtectedRoute>
             }
@@ -100,13 +90,13 @@ export default function MainLayout() {
           <Route
             path="/spectateur"
             element={
-              <ProtectedRoute allowedRoles={[ROLES.SPECTATEUR]}>
+              <ProtectedRoute allowedRoles={allRoles}>
                 <SpectatorDashboard />
               </ProtectedRoute>
             }
           />
 
-          {/* Athlete */}
+          {/* Dashboard Athlète */}
           <Route
             path="/athlete"
             element={
@@ -116,7 +106,7 @@ export default function MainLayout() {
             }
           />
 
-          {/* Commissaire */}
+          {/* Dashboard Commissaire */}
           <Route
             path="/commissaire"
             element={
@@ -126,7 +116,7 @@ export default function MainLayout() {
             }
           />
 
-          {/* Volontaire */}
+          {/* Dashboard Volontaire */}
           <Route
             path="/volontaire"
             element={
@@ -136,7 +126,7 @@ export default function MainLayout() {
             }
           />
 
-          {/* Administrateur */}
+          {/* Dashboard Administrateur */}
           <Route
             path="/administrateur"
             element={

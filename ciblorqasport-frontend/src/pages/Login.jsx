@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ROLES } from "../constants/roles";
 
+const getMainDashboard = (roles) => {
+  if (roles.includes(ROLES.ADMIN)) return "/administrateur";
+  if (roles.includes(ROLES.COMMISSAIRE)) return "/commissaire";
+  if (roles.includes(ROLES.ATHLETE)) return "/athlete";
+  if (roles.includes(ROLES.VOLONTAIRE)) return "/volontaire";
+  return "/spectateur";
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -19,29 +27,8 @@ export default function Login() {
 
     try {
       const user = await login(email, password);
-
-      const role = user.roles[0];
-
-      switch (role) {
-        case ROLES.SPECTATEUR:
-          navigate("/spectateur", { replace: true });
-          break;
-        case ROLES.ATHLETE:
-          navigate("/athlete", { replace: true });
-          break;
-        case ROLES.COMMISSAIRE:
-          navigate("/commissaire", { replace: true });
-          break;
-        case ROLES.VOLONTAIRE:
-          navigate("/volontaire", { replace: true });
-          break;
-        case ROLES.ADMIN:
-          navigate("/administrateur", { replace: true });
-          break;
-        default:
-          navigate("/home", { replace: true });
-      }
-    } catch (err) {
+      navigate(getMainDashboard(user.roles), { replace: true });
+    } catch {
       setError("Email ou mot de passe incorrect");
     } finally {
       setLoading(false);

@@ -14,6 +14,9 @@ const normalizeUser = (user) => {
       : user.roles
       ? [user.roles]
       : [],
+    prenom: user.prenom,
+    nom: user.nom,
+    telephone: user.telephone,
   };
 };
 
@@ -21,6 +24,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
+  // Récupère l'utilisateur stocké en localStorage au démarrage
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -32,10 +36,12 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Login via Spring Security session
   const login = async (email, password) => {
     const res = await apiFetch("/auth/login", {
       method: "POST",
       data: { email, password },
+      credentials: "include", // ← très important pour la session
     });
 
     const loggedUser = normalizeUser(res.data);
@@ -44,14 +50,18 @@ export function AuthProvider({ children }) {
     return loggedUser;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await apiFetch("/auth/logout", {
+      method: "POST",
+      credentials: "include", // pour supprimer la session côté serveur
+    });
     setUser(null);
     localStorage.removeItem("user");
     navigate("/login", { replace: true });
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
