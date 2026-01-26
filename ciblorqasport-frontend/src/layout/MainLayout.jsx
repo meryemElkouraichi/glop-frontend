@@ -20,7 +20,7 @@ import Tickets from "../pages/Tickets";
 // Dashboards par rôle
 import AthleteDashboard from "../pages/roles/AthleteDashboard";
 import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
-import CommissairePanel from "../pages/roles/CommissairePanel";
+import CommissairePanel from "../pages/roles/CommissaireRequests";
 import VolontaireSchedule from "../pages/roles/VolunteerSchedule";
 import AdministrateurPanel from "../pages/roles/AdminPanel";
 

@@ -10,9 +10,9 @@ export default function Tickets() {
   return (
     <div className="p-6">
       <h2 className="text-xl font-semibold mb-3">Mes billets</h2>
-      {user?.role !== "spectateur" ? (
-        <p>Seuls les spectateurs ont accès à cette section.</p>
-      ) : (
+
+
+       
         <ul className="space-y-3">
           {mockTickets.map((t) => (
             <li key={t.id} className="p-3 border rounded">
@@ -23,7 +23,7 @@ export default function Tickets() {
             </li>
           ))}
         </ul>
-      )}
+      
     </div>
   );
 }

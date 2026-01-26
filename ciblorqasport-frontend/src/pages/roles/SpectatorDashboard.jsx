@@ -66,9 +66,16 @@ export default function SpectatorDashboard() {
         {loading ? (
           <p>Chargement...</p>
         ) : demande?.status && demande.status !== "NONE" ? (
-          <p>
-            Votre demande est actuellement : <strong>{demande.status}</strong>
-          </p>
+          <div>
+            <p>
+              Votre demande est actuellement : <strong>{demande.status}</strong>
+            </p>
+            {demande.status === "refusee" && demande.motifRefus && (
+              <p className="text-red-600 mt-2">
+                Motif du refus : <strong>{demande.motifRefus}</strong>
+              </p>
+            )}
+          </div>
         ) : (
           <AthleteRequestForm onSuccess={fetchDemande} />
         )}
