@@ -26,6 +26,15 @@ import AdministrateurPanel from "../pages/roles/AdminPanel";
 
 import { ROLES } from "../constants/roles";
 
+const getMainDashboard = (roles) => {
+  if (!roles) return "/home";
+  if (roles.includes(ROLES.ADMIN)) return "/administrateur";
+  if (roles.includes(ROLES.COMMISSAIRE)) return "/commissaire";
+  if (roles.includes(ROLES.ATHLETE)) return "/athlete";
+  if (roles.includes(ROLES.VOLONTAIRE)) return "/volontaire";
+  return "/spectateur";
+};
+
 export default function MainLayout() {
   const { user } = useAuth();
 
@@ -46,7 +55,7 @@ export default function MainLayout() {
           {/* Route par défaut */}
           <Route
             path="/"
-            element={user ? <Navigate to="/home" replace /> : <Login />}
+            element={user ? <Navigate to={getMainDashboard(user.roles)} replace /> : <Login />}
           />
 
           {/* Pages publiques */}

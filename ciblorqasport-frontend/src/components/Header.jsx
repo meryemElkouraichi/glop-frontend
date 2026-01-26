@@ -23,6 +23,7 @@ export default function Header() {
   return (
     <header className="flex justify-between items-center px-6 py-3 bg-white shadow mb-4">
       <div className="flex items-center space-x-4">
+        {/* Show admin links inline in the top nav for admins */}
         <button
           onClick={goToDashboard}
           className="font-bold text-lg hover:underline"
@@ -31,7 +32,18 @@ export default function Header() {
         </button>
 
 <nav className="space-x-3 text-sm">
-  <button onClick={() => navigate("/events")}>Événements</button>
+  {user.roles.includes(ROLES.ADMIN) && (
+    <>
+      <button onClick={() => navigate('/administrateur#competition')}>Compétitions</button>
+      <button onClick={() => navigate('/administrateur#epreuve')}>Épreuves</button>
+      <button onClick={() => navigate('/administrateur#alerte')}>Alertes</button>
+      <button onClick={() => navigate('/administrateur#ceremonie')}>Cérémonies</button>
+      <button onClick={() => navigate('/administrateur#analytics')}>Analyses & Statistiques</button>
+    </>
+  )}
+  {!user.roles.includes(ROLES.ADMIN) && (
+    <button onClick={() => navigate("/events")}>Événements</button>
+  )}
   <button onClick={() => navigate("/map")}>Carte</button>
   <button onClick={() => navigate("/security")}>Sécurité</button>
   <button onClick={() => navigate("/tickets")}>Mes billets</button>
@@ -45,9 +57,7 @@ export default function Header() {
   {user.roles.includes(ROLES.VOLONTAIRE) && (
     <button onClick={() => navigate("/volontaire")}>Volontaire</button>
   )}
-  {user.roles.includes(ROLES.ADMIN) && (
-    <button onClick={() => navigate("/administrateur")}>Admin</button>
-  )}
+  {/* Admin link removed: admins are redirected automatically to their dashboard on login */}
 </nav>
 
       </div>
