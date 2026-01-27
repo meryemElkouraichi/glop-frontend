@@ -71,6 +71,25 @@ export default function CommissaireRequests({ onlyPending = true }) {
     }
   };
 
+  const downloadCertificat = async (id) => {
+  const res = await apiFetch(`/athlete-requests/${id}/certificat`, {
+    method: "GET",
+    responseType: 'blob',
+    credentials: "include",
+  });
+  
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `certificat-${id}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+
   return (
     <div className="p-6">
       <h2 className="text-2xl font-semibold">Demandes Athlètes</h2>
@@ -108,6 +127,11 @@ export default function CommissaireRequests({ onlyPending = true }) {
                 >
                   Refuser
                 </button>
+                {r.hasCertificat && (
+                  <button onClick={() => downloadCertificat(r.id)}>
+                    Télécharger certificat
+                  </button>
+                )}
               </div>
             </div>
           </li>
