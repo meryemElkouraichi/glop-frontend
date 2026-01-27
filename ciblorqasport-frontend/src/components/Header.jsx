@@ -51,7 +51,7 @@ export default function Header() {
     <button onClick={() => navigate("/athlete")}>Espace athlète</button>
   )}
   {user.roles.includes(ROLES.COMMISSAIRE) && (
-    <button onClick={() => navigate("/commissaire")}>Commissaire</button>
+    <button onClick={() => navigate("/commissaire")}>Demandes en attente</button>
   )}
   {user.roles.includes(ROLES.VOLONTAIRE) && (
     <button onClick={() => navigate("/volontaire")}>Volontaire</button>
