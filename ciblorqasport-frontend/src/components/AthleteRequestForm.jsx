@@ -5,6 +5,7 @@ import { apiFetch } from "../api/apiClient";
 export default function AthleteRequestForm({ onSuccess }) {
   const { user } = useAuth();
   const [nation, setNation] = useState("");
+  const [countries, setCountries] = useState([]);
   const [sportId, setSportId] = useState("");
   const [genre, setGenre] = useState(""); // masculin / feminin
   const [handicap, setHandicap] = useState(false);
@@ -27,6 +28,18 @@ export default function AthleteRequestForm({ onSuccess }) {
     fetchSports();
   }, []);
 
+  useEffect(() => {
+    const fetchPays = async () => {
+      try {
+        const res = await apiFetch("/pays");
+        setCountries(res.data);
+      } catch (err) {
+        console.error("Impossible de charger les pays", err);
+      }
+    };
+    fetchPays();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -36,7 +49,7 @@ export default function AthleteRequestForm({ onSuccess }) {
     try {
       const formData = new FormData();
       formData.append("sportId", sportId);
-      formData.append("nation", nation);
+      formData.append("nationId", nation);
       formData.append("genre", genre);
       formData.append("handicap", handicap ? "true" : "false");
       if (certificat) formData.append("certificat", certificat);
@@ -66,14 +79,20 @@ export default function AthleteRequestForm({ onSuccess }) {
     <form onSubmit={handleSubmit} className="space-y-4 mt-4">
       <div>
         <label className="block text-sm font-medium">Nation</label>
-        <input
-          type="text"
+        <select
           className="w-full border rounded p-2"
           value={nation}
           onChange={(e) => setNation(e.target.value)}
           required
-          disabled={loading}
-        />
+          disabled={loading || countries.length === 0}
+        >
+          <option value="">-- Choisissez un pays --</option>
+          {countries.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
