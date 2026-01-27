@@ -12,7 +12,6 @@ import Register from "../pages/Register";
 import Events from "../pages/Events";
 import EventDetail from "../pages/EventDetail";
 import MapView from "../components/MapView";
-import SecurityAlerts from "../pages/SecurityAlerts";
 import Profile from "../pages/Profile";
 import Notifications from "../pages/Notifications";
 import Tickets from "../pages/Tickets";
@@ -20,7 +19,7 @@ import Tickets from "../pages/Tickets";
 // Dashboards par rôle
 import AthleteDashboard from "../pages/roles/AthleteDashboard";
 import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
-import CommissairePanel from "../pages/roles/CommissaireRequests";
+import CommissairePanel from "../pages/roles/CommissairePanel";
 import VolontaireSchedule from "../pages/roles/VolunteerSchedule";
 import AdministrateurPanel from "../pages/roles/AdminPanel";
 
@@ -65,7 +64,7 @@ export default function MainLayout() {
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/map" element={<MapView />} />
-          <Route path="/security" element={<SecurityAlerts />} />
+          {/* Route /security removed (rubrique sécurité supprimée) */}
 
           {/* Notifications et profil (tous les rôles connectés) */}
           <Route

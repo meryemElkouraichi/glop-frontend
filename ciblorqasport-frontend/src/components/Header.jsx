@@ -45,7 +45,6 @@ export default function Header() {
     <button onClick={() => navigate("/events")}>Événements</button>
   )}
   <button onClick={() => navigate("/map")}>Carte</button>
-  <button onClick={() => navigate("/security")}>Sécurité</button>
   <button onClick={() => navigate("/tickets")}>Mes billets</button>
 
   {user.roles.includes(ROLES.ATHLETE) && (
