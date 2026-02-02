@@ -1,50 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import AthleteRequestForm from "../../components/AthleteRequestForm";
-import { apiFetch } from "../../api/apiClient";
 import { useAuth } from "../../context/AuthContext"; // pour récupérer l'email
 
 export default function SpectatorDashboard() {
   const { user } = useAuth(); // récupère l'utilisateur connecté
-  const [demande, setDemande] = useState(null);
-  const [refusedRequests, setRefusedRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Vérifie si l'utilisateur a déjà fait une demande
-  const fetchDemande = async () => {
-    if (!user?.email) {
-      setDemande(null);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await apiFetch(
-        `/athlete-requests/me?email=${encodeURIComponent(user.email)}`
-      );
-      setDemande(res.data);
-      // fetch all requests for this user to show refused history
-      try {
-        const allRes = await apiFetch(
-          `/athlete-requests/me/all?email=${encodeURIComponent(user.email)}`
-        );
-        const arr = Array.isArray(allRes.data) ? allRes.data : [];
-        setRefusedRequests(arr.filter((r) => r.status === "refusee"));
-      } catch (err) {
-        setRefusedRequests([]);
-      }
-    } catch {
-      setDemande(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDemande();
-  }, [user]);
 
   return (
     <div className="p-6">
@@ -75,7 +34,9 @@ export default function SpectatorDashboard() {
       <div className="border-t pt-4 mt-6">
         <h3 className="text-xl font-semibold mb-2">Demande pour devenir Athlète</h3>
         <p>
-          La gestion des demandes est désormais accessible depuis le bouton <strong>Mes demandes</strong> en haut de la page.
+          Gérez vos demandes pour obtenir le statut athlète depuis la page
+          {' '}
+          <Link to="/mes-demandes" className="text-blue-600">Mes demandes</Link>.
         </p>
       </div>
     </div>
