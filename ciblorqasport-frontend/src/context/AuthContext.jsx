@@ -21,20 +21,20 @@ const normalizeUser = (user) => {
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
-  // Récupère l'utilisateur stocké en localStorage au démarrage
-  useEffect(() => {
+  // Initialize user synchronously from localStorage to avoid flashing
+  // unauthenticated state on page refresh (which caused redirects).
+  const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("user");
-    if (stored) {
-      try {
-        setUser(normalizeUser(JSON.parse(stored)));
-      } catch {
-        localStorage.removeItem("user");
-      }
+    if (!stored) return null;
+    try {
+      return normalizeUser(JSON.parse(stored));
+    } catch (e) {
+      localStorage.removeItem("user");
+      return null;
     }
-  }, []);
+  });
 
   // Login via Spring Security session
   const login = async (email, password) => {
