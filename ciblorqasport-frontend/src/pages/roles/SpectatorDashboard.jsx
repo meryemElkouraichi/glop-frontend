@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext"; // pour récupérer l'email
 export default function SpectatorDashboard() {
   const { user } = useAuth(); // récupère l'utilisateur connecté
   const [demande, setDemande] = useState(null);
+  const [refusedRequests, setRefusedRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Vérifie si l'utilisateur a déjà fait une demande
@@ -24,6 +25,16 @@ export default function SpectatorDashboard() {
         `/athlete-requests/me?email=${encodeURIComponent(user.email)}`
       );
       setDemande(res.data);
+      // fetch all requests for this user to show refused history
+      try {
+        const allRes = await apiFetch(
+          `/athlete-requests/me/all?email=${encodeURIComponent(user.email)}`
+        );
+        const arr = Array.isArray(allRes.data) ? allRes.data : [];
+        setRefusedRequests(arr.filter((r) => r.status === "refusee"));
+      } catch (err) {
+        setRefusedRequests([]);
+      }
     } catch {
       setDemande(null);
     } finally {
@@ -60,25 +71,12 @@ export default function SpectatorDashboard() {
         </li>
       </ul>
 
-      {/* Section demande athlète */}
+      {/* The athlete request UI has moved to its own page accessible from the header */}
       <div className="border-t pt-4 mt-6">
         <h3 className="text-xl font-semibold mb-2">Demande pour devenir Athlète</h3>
-        {loading ? (
-          <p>Chargement...</p>
-        ) : demande?.status && demande.status !== "NONE" ? (
-          <div>
-            <p>
-              Votre demande est actuellement : <strong>{demande.status}</strong>
-            </p>
-            {demande.status === "refusee" && demande.motifRefus && (
-              <p className="text-red-600 mt-2">
-                Motif du refus : <strong>{demande.motifRefus}</strong>
-              </p>
-            )}
-          </div>
-        ) : (
-          <AthleteRequestForm onSuccess={fetchDemande} />
-        )}
+        <p>
+          La gestion des demandes est désormais accessible depuis le bouton <strong>Mes demandes</strong> en haut de la page.
+        </p>
       </div>
     </div>
   );

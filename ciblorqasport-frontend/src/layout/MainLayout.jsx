@@ -22,6 +22,7 @@ import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
 import CommissairePanel from "../pages/roles/CommissairePanel";
 import VolontaireSchedule from "../pages/roles/VolunteerSchedule";
 import AdministrateurPanel from "../pages/roles/AdminPanel";
+import MyRequests from "../pages/MyRequests";
 
 import { ROLES } from "../constants/roles";
 
@@ -100,6 +101,15 @@ export default function MainLayout() {
             element={
               <ProtectedRoute allowedRoles={allRoles}>
                 <SpectatorDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/mes-demandes"
+            element={
+              <ProtectedRoute allowedRoles={allRoles}>
+                <MyRequests />
               </ProtectedRoute>
             }
           />
