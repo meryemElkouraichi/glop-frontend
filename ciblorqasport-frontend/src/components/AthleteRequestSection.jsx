@@ -7,6 +7,7 @@ export default function AthleteRequestSection() {
   const { user } = useAuth();
   const [demande, setDemande] = useState(null);
   const [refusedRequests, setRefusedRequests] = useState([]);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchDemande = async () => {
@@ -65,7 +66,12 @@ export default function AthleteRequestSection() {
           {demande.status !== "en_attente" && (
             <div className="mt-4">
               <p className="mb-2">Vous pouvez soumettre une nouvelle demande :</p>
-              <AthleteRequestForm onSuccess={fetchDemande} />
+              <button
+                onClick={() => setShowFormModal(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                Nouvelle demande
+              </button>
             </div>
           )}
 
@@ -85,7 +91,41 @@ export default function AthleteRequestSection() {
           )}
         </div>
       ) : (
-        <AthleteRequestForm onSuccess={fetchDemande} />
+        <div className="mt-4">
+          <button
+            onClick={() => setShowFormModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Faire une demande
+          </button>
+        </div>
+      )}
+
+      {/* Modal for the request form */}
+      {showFormModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowFormModal(false)}
+          />
+          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-lg font-semibold">Nouvelle demande athlète</h4>
+              <button
+                onClick={() => setShowFormModal(false)}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                Fermer
+              </button>
+            </div>
+            <AthleteRequestForm
+              onSuccess={() => {
+                fetchDemande();
+                setShowFormModal(false);
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
