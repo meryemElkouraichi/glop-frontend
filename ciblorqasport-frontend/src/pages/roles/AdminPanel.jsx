@@ -49,6 +49,7 @@ export default function AdminPanel() {
   const [alertTitle, setAlertTitle] = useState("");
   const [alertDescription, setAlertDescription] = useState("");
   const [alertLevel, setAlertLevel] = useState("");
+  const [alertLocation, setAlertLocation] = useState("");
   const [alertErrors, setAlertErrors] = useState([]);
   const [alertSuccess, setAlertSuccess] = useState("");
 
@@ -404,10 +405,37 @@ export default function AdminPanel() {
                 if (!alertTitle.trim()) e.push("Le titre est requis.");
                 if (!alertLevel) e.push("Le niveau est requis.");
                 if (e.length) { setAlertErrors(e); return; }
-                const alert = { title: alertTitle, description: alertDescription, level: alertLevel };
-                console.log("[Admin] Création alerte sécurité (front-only):", alert);
-                setAlertSuccess("Alerte créée (front-only)");
-                setAlertTitle(""); setAlertDescription(""); setAlertLevel("");
+
+                const mapLevel = (l) => {
+                  if (l === 'critique') return 'CRITIQUE';
+                  if (l === 'alerte') return 'IMPORTANT';
+                  return 'INFORMATIONNEL';
+                };
+
+                apiFetch("/incidents", {
+                  method: "POST",
+                  data: {
+                    description: alertTitle + " : " + alertDescription,
+                    lieu: alertLocation || "Non spécifié",
+                    level: mapLevel(alertLevel)
+                  }
+                }).then(() => {
+                  setAlertSuccess("Alerte publiée et notifications envoyées !");
+                  setAlertTitle("");
+                  setAlertDescription("");
+                  setAlertLevel("");
+                  setAlertLocation("");
+                }).catch(err => {
+                  console.error("Axios check - Error:", err);
+                  if (err.response) {
+                    console.error("Axios check - Status:", err.response.status);
+                    console.error("Axios check - Data:", err.response.data);
+                  } else if (err.request) {
+                    console.error("Axios check - No response received (Network Error?)");
+                  }
+                  setAlertErrors(["Erreur technique : " + (err.response?.data?.message || err.message)]);
+                });
+
               }} className="space-y-3">
                 <div>
                   <label className="block text-sm">Titre</label>
@@ -417,19 +445,23 @@ export default function AdminPanel() {
                   <label className="block text-sm">Niveau</label>
                   <select value={alertLevel} onChange={(e) => setAlertLevel(e.target.value)} className="mt-1 block w-full border rounded p-2">
                     <option value="">-- Choisir --</option>
-                    <option value="info">Info</option>
-                    <option value="alerte">Alerte</option>
-                    <option value="critique">Critique</option>
+                    <option value="info">Info (Spectateurs)</option>
+                    <option value="alerte">Alerte (Staff/Athlètes)</option>
+                    <option value="critique">Critique (Tout le monde)</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm">Lieu (Optionnel)</label>
+                  <input value={alertLocation} onChange={(e) => setAlertLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" placeholder="Ex: Piscine Olympique" />
                 </div>
                 <div>
                   <label className="block text-sm">Description</label>
                   <textarea value={alertDescription} onChange={(e) => setAlertDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
                 </div>
-                {alertErrors.length > 0 && <div className="text-red-600">{alertErrors.map((err,i)=><div key={i}>{err}</div>)}</div>}
+                {alertErrors.length > 0 && <div className="text-red-600">{alertErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
                 {alertSuccess && <div className="text-green-600">{alertSuccess}</div>}
                 <div className="flex gap-2">
-                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Publier l'alerte</button>
                 </div>
               </form>
             </div>

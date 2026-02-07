@@ -16,11 +16,14 @@ export async function apiFetch(path, opts = {}) {
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
   }
 
+  // Support 'body' as alias for 'data' for convenience
+  const requestData = opts.data || (opts.body ? JSON.parse(opts.body) : undefined);
+
   return apiClient.request({
     url: path,
     method: opts.method || "GET",
-    data: opts.data,
+    data: requestData,
     headers,
-    withCredentials: opts.credentials === "include",
+    withCredentials: true, // Always send session cookies/credentials
   });
 }
