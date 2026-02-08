@@ -19,11 +19,11 @@ export default function CommissaireRequests({ onlyPending = true }) {
       setRequests(
         onlyPending
           ? data.filter(
-              (r) =>
-                r.status === "en_attente" ||
-                r.status === "en attente" ||
-                r.status === "pending"
-            )
+            (r) =>
+              r.status === "en_attente" ||
+              r.status === "en attente" ||
+              r.status === "pending"
+          )
           : data
       );
     } catch (e) {
@@ -71,23 +71,29 @@ export default function CommissaireRequests({ onlyPending = true }) {
     }
   };
 
-  const downloadCertificat = async (id) => {
-  const res = await apiFetch(`/athlete-requests/${id}/certificat`, {
-    method: "GET",
-    responseType: 'blob',
-    credentials: "include",
-  });
-  
-  const blob = new Blob([res.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `certificat-${id}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-};
+  const downloadCertificat = async (req) => {
+    try {
+      const res = await apiFetch(`/athlete-requests/${req.id}/certificat`, {
+        method: "GET",
+        responseType: 'blob',
+        credentials: "include",
+      });
+
+      const fileName = req.docNom || `certificat-${req.id}.pdf`;
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Erreur lors du téléchargement", err);
+      alert("Erreur lors du téléchargement du certificat");
+    }
+  };
 
 
   return (
@@ -128,7 +134,7 @@ export default function CommissaireRequests({ onlyPending = true }) {
                   Refuser
                 </button>
                 {r.hasCertificat && (
-                  <button onClick={() => downloadCertificat(r.id)}>
+                  <button onClick={() => downloadCertificat(r)}>
                     Télécharger certificat
                   </button>
                 )}
