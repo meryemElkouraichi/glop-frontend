@@ -53,6 +53,9 @@ export default function AdminPanel() {
   const [alertErrors, setAlertErrors] = useState([]);
   const [alertSuccess, setAlertSuccess] = useState("");
 
+  // Incidents list state
+  const [incidents, setIncidents] = useState([]);
+
   // Épreuve du jour (mock)
   const [epDay] = useState([
     { id: 1, name: "50m Libre Hommes (Natation)", status: "en_cours", sport: "Natation" },
@@ -73,6 +76,30 @@ export default function AdminPanel() {
       }
     });
   }, []);
+
+  // Charger les incidents
+  const loadIncidents = () => {
+    apiFetch("/incidents").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setIncidents(r.data);
+      }
+    });
+  };
+
+  useEffect(() => {
+    loadIncidents();
+  }, []);
+
+  const resolveIncident = async (incidentId) => {
+    try {
+      await apiFetch(`/incidents/${incidentId}/resolve`, { method: "PUT" });
+      loadIncidents(); // Recharger la liste
+      setAlertSuccess("Incident résolu et notifications envoyées !");
+    } catch (error) {
+      console.error("Erreur lors de la résolution:", error);
+      setAlertErrors(["Erreur lors de la résolution de l'incident"]);
+    }
+  };
 
   useEffect(() => {
     if (location && location.hash) {
@@ -425,6 +452,7 @@ export default function AdminPanel() {
                   setAlertDescription("");
                   setAlertLevel("");
                   setAlertLocation("");
+                  loadIncidents(); // Recharger la liste des incidents
                 }).catch(err => {
                   console.error("Axios check - Error:", err);
                   if (err.response) {
@@ -464,6 +492,45 @@ export default function AdminPanel() {
                   <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Publier l'alerte</button>
                 </div>
               </form>
+
+              {/* Liste des incidents */}
+              <div className="mt-6 border-t pt-4">
+                <h5 className="text-md font-medium mb-3">Incidents en cours</h5>
+                {incidents.length === 0 ? (
+                  <p className="text-gray-500">Aucun incident.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {incidents.map((inc) => (
+                      <li key={inc.id} className={`p-3 border rounded flex justify-between items-center ${inc.status === 'RESOLU' ? 'bg-gray-50 opacity-70' : 'bg-white'}`}>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${inc.level === 'CRITIQUE' ? 'bg-red-100 text-red-800' :
+                                inc.level === 'IMPORTANT' ? 'bg-orange-100 text-orange-800' :
+                                  'bg-blue-100 text-blue-800'
+                              }`}>
+                              {inc.level}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${inc.status === 'RESOLU' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                              {inc.status === 'RESOLU' ? '✅ Résolu' : '⚠️ En cours'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm">{inc.description}</p>
+                          <p className="text-xs text-gray-500">{inc.lieu} • {new Date(inc.dateCreation).toLocaleString()}</p>
+                        </div>
+                        {inc.status !== 'RESOLU' && (
+                          <button
+                            onClick={() => resolveIncident(inc.id)}
+                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                          >
+                            Résoudre
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           )}
         </section>
