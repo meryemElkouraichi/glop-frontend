@@ -36,6 +36,7 @@ export default function AdminPanel() {
 
   // Cérémonie form state
   const [cerName, setCerName] = useState("");
+  const [cerCompetition, setCerCompetition] = useState("");
   const [cerDate, setCerDate] = useState("");
   const [cerStartTime, setCerStartTime] = useState("");
   const [cerEndTime, setCerEndTime] = useState("");
@@ -55,6 +56,9 @@ export default function AdminPanel() {
 
   // Incidents list state
   const [incidents, setIncidents] = useState([]);
+
+  // List of competitions for selection
+  const [competitions, setCompetitions] = useState([]);
 
   // Épreuve du jour (mock)
   const [epDay] = useState([
@@ -86,8 +90,17 @@ export default function AdminPanel() {
     });
   };
 
+  const loadCompetitions = () => {
+    apiFetch("/competitions").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setCompetitions(r.data);
+      }
+    });
+  };
+
   useEffect(() => {
     loadIncidents();
+    loadCompetitions();
   }, []);
 
   const resolveIncident = async (incidentId) => {
@@ -112,20 +125,13 @@ export default function AdminPanel() {
     const e = [];
     if (!compName.trim()) e.push("Le nom de la compétition est requis.");
     if (!compStart) e.push("La date de début est requise.");
-    if (!compStartTime) e.push("L'heure de début est requise.");
     if (!compEnd) e.push("La date de fin est requise.");
-    if (!compEndTime) e.push("L'heure de fin est requise.");
-    if (compStart && compStartTime && compEnd && compEndTime) {
-      const start = new Date(compStart + "T" + compStartTime);
-      const end = new Date(compEnd + "T" + compEndTime);
-      if (start > end) e.push("La date/heure de début doit être antérieure ou égale à la date/heure de fin.");
-    }
     if (!compSport.trim()) e.push("Le sport associé est requis.");
     if (!compCountry.trim()) e.push("Le pays organisateur est requis.");
     return e;
   };
 
-  const submitCompetition = (ev) => {
+  const submitCompetition = async (ev) => {
     ev.preventDefault();
     setCompErrors([]);
     setCompSuccess("");
@@ -134,16 +140,29 @@ export default function AdminPanel() {
       setCompErrors(e);
       return;
     }
-    const competition = { name: compName, sport: compSport, startDate: compStart, startTime: compStartTime, endDate: compEnd, endTime: compEndTime, country: compCountry };
-    console.log("[Admin] Création compétition (front-only):", competition);
-    setCompSuccess("Compétition créée (front-only)");
-    setCompName("");
-    setCompStart("");
-    setCompStartTime("");
-    setCompEnd("");
-    setCompEndTime("");
-    setCompCountry("");
-    setCompSport("");
+
+    const competitionData = {
+      typeObjet: "COMPETITION",
+      nom: compName,
+      type: compSport,
+      dateDebut: compStart,
+      dateFin: compEnd,
+      paysOrganisateur: compCountry,
+      status: "Planifié"
+    };
+
+    try {
+      await apiFetch("/competitions", {
+        method: "POST",
+        data: competitionData
+      });
+      setCompSuccess("Compétition créée avec succès !");
+      setCompName(""); setCompStart(""); setCompStartTime(""); setCompEnd(""); setCompEndTime(""); setCompCountry(""); setCompSport("");
+      loadCompetitions(); // Refresh list
+    } catch (error) {
+      console.error("Erreur création compétition:", error);
+      setCompErrors(["Erreur lors de la création de la compétition sur le serveur."]);
+    }
   };
 
   const validateEpreuve = () => {
@@ -163,7 +182,7 @@ export default function AdminPanel() {
     return e;
   };
 
-  const submitEpreuve = (ev) => {
+  const submitEpreuve = async (ev) => {
     ev.preventDefault();
     setEpErrors([]);
     setEpSuccess("");
@@ -172,16 +191,30 @@ export default function AdminPanel() {
       setEpErrors(e);
       return;
     }
-    const epreuve = { name: epName, competition: epCompetition, sport: epSport, date: epDate, startTime: epStartTime, endTime: epEndTime, location: epLocation };
-    console.log("[Admin] Création épreuve (front-only):", epreuve);
-    setEpSuccess("Épreuve créée (front-only)");
-    setEpName("");
-    setEpCompetition("");
-    setEpDate("");
-    setEpStartTime("");
-    setEpEndTime("");
-    setEpSport("");
-    setEpLocation("");
+
+    const epreuveData = {
+      typeObjet: "EPREUVE",
+      nom: epName,
+      type: epSport, // On utilise le sport comme type
+      dateDebut: epDate,
+      dateFin: epDate, // Même date pour une épreuve simple
+      heureDebut: epStartTime,
+      heureFin: epEndTime,
+      lieuSpecifique: epLocation,
+      status: "Planifié"
+    };
+
+    try {
+      await apiFetch(`/competitions/${epCompetition}/children`, {
+        method: "POST",
+        data: epreuveData
+      });
+      setEpSuccess("Épreuve créée avec succès !");
+      setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpSport(""); setEpLocation("");
+    } catch (error) {
+      console.error("Erreur création épreuve:", error);
+      setEpErrors(["Erreur lors de la création de l'épreuve. Vérifiez les dates par rapport à la compétition."]);
+    }
   };
 
   return (
@@ -251,22 +284,14 @@ export default function AdminPanel() {
                   <label className="block text-sm">Nom</label>
                   <input value={compName} onChange={(e) => setCompName(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                 </div>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm">Date de début</label>
                     <input type="date" value={compStart} onChange={(e) => setCompStart(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                   </div>
                   <div>
-                    <label className="block text-sm">Heure de début</label>
-                    <input type="time" value={compStartTime} onChange={(e) => setCompStartTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                  </div>
-                  <div>
                     <label className="block text-sm">Date de fin</label>
                     <input type="date" value={compEnd} onChange={(e) => setCompEnd(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm">Heure de fin</label>
-                    <input type="time" value={compEndTime} onChange={(e) => setCompEndTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                   </div>
                 </div>
                 <div>
@@ -297,8 +322,17 @@ export default function AdminPanel() {
                   <input value={epName} onChange={(e) => setEpName(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                 </div>
                 <div>
-                  <label className="block text-sm">Compétition (nom)</label>
-                  <input value={epCompetition} onChange={(e) => setEpCompetition(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                  <label className="block text-sm">Compétition associée</label>
+                  <select
+                    value={epCompetition}
+                    onChange={(e) => setEpCompetition(e.target.value)}
+                    className="mt-1 block w-full border rounded p-2"
+                  >
+                    <option value="">-- Choisir une compétition --</option>
+                    {competitions.map(c => (
+                      <option key={c.id} value={c.id}>{c.nom}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm">Sport</label>
@@ -336,7 +370,7 @@ export default function AdminPanel() {
           {tab === "ceremonie" && (
             <div className="bg-white p-4 rounded shadow">
               <h4 className="text-lg font-medium mb-3">Créer une cérémonie</h4>
-              <form onSubmit={(ev) => {
+              <form onSubmit={async (ev) => {
                 ev.preventDefault();
                 setCerErrors([]);
                 setCerSuccess("");
@@ -353,14 +387,57 @@ export default function AdminPanel() {
                 if (!cerType) e.push("Le type de cérémonie est requis.");
                 if (!cerLocation.trim()) e.push("Le lieu est requis.");
                 if (e.length) { setCerErrors(e); return; }
-                const ceremonie = { name: cerName, date: cerDate, startTime: cerStartTime, endTime: cerEndTime, type: cerType, location: cerLocation, description: cerDescription };
-                console.log("[Admin] Création cérémonie (front-only):", ceremonie);
-                setCerSuccess("Cérémonie créée (front-only)");
-                setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription("");
+
+                const mapCerType = (t) => {
+                  if (t === "remise_prix") return "REMISE_MEDAILLES";
+                  return t.toUpperCase();
+                };
+
+                const ceremonieData = {
+                  typeObjet: "CEREMONIE",
+                  nom: cerName,
+                  type: "Cérémonie",
+                  dateDebut: cerDate,
+                  dateFin: cerDate,
+                  heureDebut: cerStartTime,
+                  heureFin: cerEndTime,
+                  paysOrganisateur: cerLocation,
+                  status: "Planifié",
+                  typeCeremonie: mapCerType(cerType)
+                };
+
+                try {
+                  const url = cerCompetition
+                    ? `/competitions/${cerCompetition}/children`
+                    : "/events"; // Fallback to generic events if no competition
+
+                  await apiFetch(url, {
+                    method: "POST",
+                    data: ceremonieData
+                  });
+                  setCerSuccess("Cérémonie créée avec succès !");
+                  setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription(""); setCerCompetition("");
+                } catch (error) {
+                  console.error("Erreur création cérémonie:", error);
+                  setCerErrors(["Erreur lors de la création de la cérémonie sur le serveur."]);
+                }
               }} className="space-y-3">
                 <div>
                   <label className="block text-sm">Nom de la cérémonie</label>
                   <input value={cerName} onChange={(e) => setCerName(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                </div>
+                <div>
+                  <label className="block text-sm">Compétition associée (Optionnel)</label>
+                  <select
+                    value={cerCompetition}
+                    onChange={(e) => setCerCompetition(e.target.value)}
+                    className="mt-1 block w-full border rounded p-2"
+                  >
+                    <option value="">-- Sans compétition --</option>
+                    {competitions.map(c => (
+                      <option key={c.id} value={c.id}>{c.nom}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
                   <div>
@@ -505,8 +582,8 @@ export default function AdminPanel() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${inc.level === 'CRITIQUE' ? 'bg-red-100 text-red-800' :
-                                inc.level === 'IMPORTANT' ? 'bg-orange-100 text-orange-800' :
-                                  'bg-blue-100 text-blue-800'
+                              inc.level === 'IMPORTANT' ? 'bg-orange-100 text-orange-800' :
+                                'bg-blue-100 text-blue-800'
                               }`}>
                               {inc.level}
                             </span>
