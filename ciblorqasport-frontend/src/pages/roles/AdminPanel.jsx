@@ -22,11 +22,13 @@ export default function AdminPanel() {
   const [compSport, setCompSport] = useState("");
   const [compErrors, setCompErrors] = useState([]);
   const [compSuccess, setCompSuccess] = useState("");
+  const [editingCompId, setEditingCompId] = useState(null);
 
   // Epreuve form state
   const [epName, setEpName] = useState("");
   const [epCompetition, setEpCompetition] = useState("");
-  const [epSport, setEpSport] = useState("");
+  const [epDiscipline, setEpDiscipline] = useState("");
+  const [epGenre, setEpGenre] = useState("");
   const [epDate, setEpDate] = useState("");
   const [epStartTime, setEpStartTime] = useState("");
   const [epEndTime, setEpEndTime] = useState("");
@@ -59,6 +61,18 @@ export default function AdminPanel() {
 
   // List of competitions for selection
   const [competitions, setCompetitions] = useState([]);
+
+  // List of distinct sports for selection
+  const [sportList, setSportList] = useState([]);
+
+  // List of countries for selection
+  const [countries, setCountries] = useState([]);
+
+  // List of distinct disciplines for selection
+  const [disciplineList, setDisciplineList] = useState([]);
+
+  // List of distinct genres for selection
+  const [genreList, setGenreList] = useState([]);
 
   // Épreuve du jour (mock)
   const [epDay] = useState([
@@ -98,9 +112,45 @@ export default function AdminPanel() {
     });
   };
 
+  const loadSports = () => {
+    apiFetch("/sports/distinct").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setSportList(r.data);
+      }
+    });
+  };
+
+  const loadCountries = () => {
+    apiFetch("/pays").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setCountries(r.data);
+      }
+    });
+  };
+
+  const loadDisciplines = () => {
+    apiFetch("/sports/disciplines/distinct").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setDisciplineList(r.data);
+      }
+    });
+  };
+
+  const loadGenres = () => {
+    apiFetch("/sports/genres/distinct").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setGenreList(r.data);
+      }
+    });
+  };
+
   useEffect(() => {
     loadIncidents();
     loadCompetitions();
+    loadSports();
+    loadCountries();
+    loadDisciplines();
+    loadGenres();
   }, []);
 
   const resolveIncident = async (incidentId) => {
@@ -152,24 +202,64 @@ export default function AdminPanel() {
     };
 
     try {
-      await apiFetch("/competitions", {
-        method: "POST",
-        data: competitionData
-      });
-      setCompSuccess("Compétition créée avec succès !");
-      setCompName(""); setCompStart(""); setCompStartTime(""); setCompEnd(""); setCompEndTime(""); setCompCountry(""); setCompSport("");
-      loadCompetitions(); // Refresh list
+      if (editingCompId) {
+        await apiFetch(`/competitions/${editingCompId}`, {
+          method: "PUT",
+          data: competitionData
+        });
+        setCompSuccess("Compétition mise à jour !");
+      } else {
+        await apiFetch("/competitions", {
+          method: "POST",
+          data: competitionData
+        });
+        setCompSuccess("Compétition créée !");
+      }
+      setCompName(""); setCompStart(""); setCompEnd(""); setCompCountry(""); setCompSport("");
+      setEditingCompId(null);
+      loadCompetitions();
     } catch (error) {
-      console.error("Erreur création compétition:", error);
-      setCompErrors(["Erreur lors de la création de la compétition sur le serveur."]);
+      setCompErrors(["Erreur lors de l'enregistrement."]);
     }
+  };
+
+  const deleteCompetition = async (id) => {
+    if (!window.confirm("Supprimer cette compétition ?")) return;
+    try {
+      await apiFetch(`/competitions/${id}`, { method: "DELETE" });
+      loadCompetitions();
+    } catch (e) {
+      alert("Erreur suppression");
+    }
+  };
+
+  const editCompetition = (c) => {
+    setEditingCompId(c.id);
+    setCompName(c.nom);
+    setCompStart(c.dateDebut);
+    setCompEnd(c.dateFin);
+    setCompSport(c.type);
+    setCompCountry(c.paysOrganisateur);
+    setCompSuccess("");
+    setCompErrors([]);
+  };
+
+  const calculateDaysUntil = (dateStr) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr);
+    target.setHours(0, 0, 0, 0);
+    const diff = target - today;
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return days;
   };
 
   const validateEpreuve = () => {
     const e = [];
     if (!epName.trim()) e.push("Le nom de l'épreuve est requis.");
     if (!epCompetition.trim()) e.push("La compétition associée est requise.");
-    if (!epSport.trim()) e.push("Le sport associé est requis.");
+    if (!epDiscipline.trim()) e.push("La discipline est requise.");
+    if (!epGenre.trim()) e.push("Le genre est requis.");
     if (!epDate) e.push("La date de l'épreuve est requise.");
     if (!epStartTime) e.push("L'heure de début est requise pour l'épreuve.");
     if (!epEndTime) e.push("L'heure de fin est requise pour l'épreuve.");
@@ -192,12 +282,16 @@ export default function AdminPanel() {
       return;
     }
 
+    const selectedComp = competitions.find(c => c.id === epCompetition);
+
     const epreuveData = {
       typeObjet: "EPREUVE",
       nom: epName,
-      type: epSport, // On utilise le sport comme type
+      type: selectedComp ? selectedComp.type : "",
+      discipline: epDiscipline,
+      genre: epGenre,
       dateDebut: epDate,
-      dateFin: epDate, // Même date pour une épreuve simple
+      dateFin: epDate,
       heureDebut: epStartTime,
       heureFin: epEndTime,
       lieuSpecifique: epLocation,
@@ -210,7 +304,7 @@ export default function AdminPanel() {
         data: epreuveData
       });
       setEpSuccess("Épreuve créée avec succès !");
-      setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpSport(""); setEpLocation("");
+      setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpDiscipline(""); setEpGenre(""); setEpLocation("");
     } catch (error) {
       console.error("Erreur création épreuve:", error);
       setEpErrors(["Erreur lors de la création de l'épreuve. Vérifiez les dates par rapport à la compétition."]);
@@ -278,7 +372,9 @@ export default function AdminPanel() {
 
           {tab === "competition" && (
             <div className="bg-white p-4 rounded shadow">
-              <h4 className="text-lg font-medium mb-3">Créer une compétition</h4>
+              <h4 className="text-lg font-medium mb-3">
+                {editingCompId ? "Modifier la compétition" : "Créer une compétition"}
+              </h4>
               <form onSubmit={submitCompetition} className="space-y-3">
                 <div>
                   <label className="block text-sm">Nom</label>
@@ -296,20 +392,86 @@ export default function AdminPanel() {
                 </div>
                 <div>
                   <label className="block text-sm">Sport</label>
-                  <input value={compSport} onChange={(e) => setCompSport(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                  <select
+                    value={compSport}
+                    onChange={(e) => setCompSport(e.target.value)}
+                    className="mt-1 block w-full border rounded p-2"
+                  >
+                    <option value="">-- Choisir un sport --</option>
+                    {sportList.map((s, i) => (
+                      <option key={i} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm">Pays organisateur</label>
-                  <input value={compCountry} onChange={(e) => setCompCountry(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                  <select
+                    value={compCountry}
+                    onChange={(e) => setCompCountry(e.target.value)}
+                    className="mt-1 block w-full border rounded p-2"
+                  >
+                    <option value="">-- Choisir un pays --</option>
+                    {countries.map((c) => (
+                      <option key={c.id} value={c.nom}>{c.nom}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {compErrors.length > 0 && <div className="text-red-600">{compErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
                 {compSuccess && <div className="text-green-600">{compSuccess}</div>}
 
                 <div className="flex gap-2">
-                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+                    {editingCompId ? "Mettre à jour" : "Créer"}
+                  </button>
+                  {editingCompId && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingCompId(null); setCompName(""); setCompStart(""); setCompEnd(""); setCompCountry(""); setCompSport(""); setCompSuccess(""); setCompErrors([]); }}
+                      className="bg-gray-400 text-white px-4 py-2 rounded"
+                    >
+                      Annuler
+                    </button>
+                  )}
                 </div>
               </form>
+
+              <div className="mt-8 border-t pt-4">
+                <h5 className="font-semibold mb-4 text-gray-700">Liste des compétitions</h5>
+                <div className="space-y-3">
+                  {competitions.length === 0 && <p className="text-gray-500 italic">Aucune compétition trouvée.</p>}
+                  {competitions.map((c) => {
+                    const days = calculateDaysUntil(c.dateDebut);
+                    return (
+                      <div key={c.id} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-bold text-lg">{c.nom}</div>
+                          <div className="text-sm text-gray-600">
+                            {c.paysOrganisateur} • {c.type}
+                          </div>
+                          <div className={`text-sm mt-1 font-medium ${days <= 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                            {days > 0 ? `Démarre dans ${days} jour(s)` : "En cours ou terminée"}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => editCompetition(c)}
+                            className="text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded text-sm transition-colors"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => deleteCompetition(c.id)}
+                            className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -334,9 +496,33 @@ export default function AdminPanel() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm">Sport</label>
-                  <input value={epSport} onChange={(e) => setEpSport(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm">Discipline</label>
+                    <select
+                      value={epDiscipline}
+                      onChange={(e) => setEpDiscipline(e.target.value)}
+                      className="mt-1 block w-full border rounded p-2"
+                    >
+                      <option value="">-- Choisir une discipline --</option>
+                      {disciplineList.map((d, i) => (
+                        <option key={i} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm">Genre</label>
+                    <select
+                      value={epGenre}
+                      onChange={(e) => setEpGenre(e.target.value)}
+                      className="mt-1 block w-full border rounded p-2"
+                    >
+                      <option value="">-- Choisir un genre --</option>
+                      {genreList.map((g, i) => (
+                        <option key={i} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
                   <div>
@@ -611,7 +797,7 @@ export default function AdminPanel() {
             </div>
           )}
         </section>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
