@@ -32,9 +32,10 @@ export default function AdminPanel() {
   const [epDate, setEpDate] = useState("");
   const [epStartTime, setEpStartTime] = useState("");
   const [epEndTime, setEpEndTime] = useState("");
-  const [epLocation, setEpLocation] = useState("");
+  const [epLieuId, setEpLieuId] = useState("");
   const [epErrors, setEpErrors] = useState([]);
   const [epSuccess, setEpSuccess] = useState("");
+  const [editingEpId, setEditingEpId] = useState(null);
 
   // Cérémonie form state
   const [cerName, setCerName] = useState("");
@@ -73,6 +74,12 @@ export default function AdminPanel() {
 
   // List of distinct genres for selection
   const [genreList, setGenreList] = useState([]);
+
+  // List of locations for selection
+  const [lieuList, setLieuList] = useState([]);
+
+  // List of epreuves for display
+  const [epreuvesList, setEpreuvesList] = useState([]);
 
   // Épreuve du jour (mock)
   const [epDay] = useState([
@@ -144,6 +151,24 @@ export default function AdminPanel() {
     });
   };
 
+  const loadLieux = () => {
+    apiFetch("/lieux").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setLieuList(r.data);
+      }
+    });
+  };
+
+  const loadEpreuves = () => {
+    apiFetch("/epreuves").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setEpreuvesList(r.data);
+      }
+    }).catch(err => {
+      console.error("Error loading epreuves:", err);
+    });
+  };
+
   useEffect(() => {
     loadIncidents();
     loadCompetitions();
@@ -151,6 +176,8 @@ export default function AdminPanel() {
     loadCountries();
     loadDisciplines();
     loadGenres();
+    loadLieux();
+    loadEpreuves();
   }, []);
 
   const resolveIncident = async (incidentId) => {
@@ -268,7 +295,7 @@ export default function AdminPanel() {
       const en = new Date(epDate + "T" + epEndTime);
       if (s > en) e.push("L'heure de début doit être antérieure ou égale à l'heure de fin pour l'épreuve.");
     }
-    if (!epLocation.trim()) e.push("Le lieu est requis.");
+    if (!epLieuId) e.push("Le lieu est requis.");
     return e;
   };
 
@@ -287,28 +314,68 @@ export default function AdminPanel() {
     const epreuveData = {
       typeObjet: "EPREUVE",
       nom: epName,
-      type: selectedComp ? selectedComp.type : "",
+      type: (selectedComp && selectedComp.type) ? selectedComp.type : "Sport", // Fallback type
       discipline: epDiscipline,
       genre: epGenre,
       dateDebut: epDate,
       dateFin: epDate,
       heureDebut: epStartTime,
       heureFin: epEndTime,
-      lieuSpecifique: epLocation,
-      status: "Planifié"
+      lieu: epLieuId ? { id: epLieuId } : null,
+      parent: epCompetition ? { id: epCompetition, typeObjet: "COMPETITION" } : null,
+      status: editingEpId ? "Planifié" : "Planifié" // Keeping existing status logic simplified for now
     };
 
     try {
-      await apiFetch(`/competitions/${epCompetition}/children`, {
-        method: "POST",
-        data: epreuveData
-      });
-      setEpSuccess("Épreuve créée avec succès !");
-      setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpDiscipline(""); setEpGenre(""); setEpLocation("");
+      if (editingEpId) {
+        await apiFetch(`/epreuves/${editingEpId}`, {
+          method: "PUT",
+          data: epreuveData
+        });
+      } else {
+        await apiFetch(`/competitions/${epCompetition}/children`, {
+          method: "POST",
+          data: epreuveData
+        });
+      }
+      setEpSuccess(editingEpId ? "Épreuve mise à jour !" : "Épreuve créée avec succès !");
+      setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpDiscipline(""); setEpGenre(""); setEpLieuId("");
+      setEditingEpId(null);
+      loadEpreuves();
     } catch (error) {
-      console.error("Erreur création épreuve:", error);
-      setEpErrors(["Erreur lors de la création de l'épreuve. Vérifiez les dates par rapport à la compétition."]);
+      console.error("Erreur enregistrement épreuve:", error);
+      const msg = error.response?.data || "Erreur lors de l'enregistrement de l'épreuve. Vérifiez les dates par rapport à la compétition.";
+      setEpErrors([typeof msg === 'string' ? msg : "Erreur serveur."]);
     }
+  };
+
+  const deleteEpreuve = async (id) => {
+    if (!window.confirm("Supprimer cette épreuve ?")) return;
+    try {
+      await apiFetch(`/epreuves/${id}`, { method: "DELETE" });
+      loadEpreuves();
+    } catch (e) {
+      alert("Erreur suppression");
+    }
+  };
+
+  const editEpreuve = (ep) => {
+    setEditingEpId(ep.id);
+    setEpName(ep.nom);
+    setEpCompetition(ep.parent ? ep.parent.id : "");
+    setEpDiscipline(ep.discipline || "");
+    setEpGenre(ep.genre || "");
+    setEpDate(ep.dateDebut || "");
+    setEpStartTime(ep.heureDebut || "");
+    setEpEndTime(ep.heureFin || "");
+    setEpLieuId(ep.lieu ? ep.lieu.id : "");
+    setEpSuccess("");
+    setEpErrors([]);
+  };
+
+  const addParticipants = (ep) => {
+    // TODO: Implement add participants functionality
+    alert("Fonctionnalité d'ajout de participants à venir");
   };
 
   return (
@@ -345,7 +412,7 @@ export default function AdminPanel() {
           </aside>
         )}
 
-        <section className="flex-1 ml-80">
+        <section className={`flex-1 ${!(user && user.roles && user.roles.includes(ROLES.ADMIN)) ? 'ml-80' : ''}`}>
           {tab !== 'home' && (
             <div className="mb-4">
               <button onClick={() => { setTab('home'); window.location.hash = ''; }} className="text-sm text-blue-600">← Retour</button>
@@ -477,7 +544,9 @@ export default function AdminPanel() {
 
           {tab === "epreuve" && (
             <div className="bg-white p-4 rounded shadow">
-              <h4 className="text-lg font-medium mb-3">Créer une épreuve</h4>
+              <h4 className="text-lg font-medium mb-3">
+                {editingEpId ? "Modifier l'épreuve" : "Créer une épreuve"}
+              </h4>
               <form onSubmit={submitEpreuve} className="space-y-3">
                 <div>
                   <label className="block text-sm">Nom de l'épreuve</label>
@@ -538,8 +607,17 @@ export default function AdminPanel() {
                     <input type="time" value={epEndTime} onChange={(e) => setEpEndTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                   </div>
                   <div>
-                    <label className="block text-sm">Lieu</label>
-                    <input value={epLocation} onChange={(e) => setEpLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    <label className="block text-sm">Lieu de l'épreuve</label>
+                    <select
+                      value={epLieuId}
+                      onChange={(e) => setEpLieuId(e.target.value)}
+                      className="mt-1 block w-full border rounded p-2"
+                    >
+                      <option value="">-- Choisir un lieu --</option>
+                      {lieuList.map((l) => (
+                        <option key={l.id} value={l.id}>{l.nom}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -547,9 +625,71 @@ export default function AdminPanel() {
                 {epSuccess && <div className="text-green-600">{epSuccess}</div>}
 
                 <div className="flex gap-2">
-                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+                    {editingEpId ? "Mettre à jour" : "Créer"}
+                  </button>
+                  {editingEpId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEpId(null);
+                        setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpDiscipline(""); setEpGenre(""); setEpLieuId("");
+                        setEpSuccess(""); setEpErrors([]);
+                      }}
+                      className="bg-gray-400 text-white px-4 py-2 rounded"
+                    >
+                      Annuler
+                    </button>
+                  )}
                 </div>
               </form>
+
+              <div className="mt-8 border-t pt-4">
+                <h5 className="font-semibold mb-4 text-gray-700">Liste des épreuves</h5>
+                <div className="space-y-3">
+                  {epreuvesList.length === 0 && <p className="text-gray-500 italic">Aucune épreuve trouvée.</p>}
+                  {epreuvesList.map((ep) => {
+                    const days = calculateDaysUntil(ep.dateDebut);
+                    const lieuName = ep.lieu ? ep.lieu.nom : "Non spécifié";
+                    return (
+                      <div key={ep.id} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-bold text-lg">{ep.nom}</div>
+                          <div className="text-sm text-gray-600">
+                            {ep.discipline} • {ep.genre} • {lieuName}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Statut: {ep.status}
+                          </div>
+                          <div className={`text-sm mt-1 font-medium ${days <= 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                            {days > 0 ? `Démarre dans ${days} jour(s)` : "En cours ou terminée"}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => editEpreuve(ep)}
+                            className="text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded text-sm transition-colors"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => addParticipants(ep)}
+                            className="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm transition-colors"
+                          >
+                            Participants
+                          </button>
+                          <button
+                            onClick={() => deleteEpreuve(ep.id)}
+                            className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
