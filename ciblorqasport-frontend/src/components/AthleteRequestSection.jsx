@@ -82,7 +82,7 @@ export default function AthleteRequestSection() {
                 {refusedRequests.map((r) => (
                   <li key={r.id} className="text-sm text-red-700">
                     {r.dateDemande ? new Date(r.dateDemande).toLocaleString() + " - " : ""}
-                    <span className="font-medium">{r.sport?.nom || "—"}</span>
+                    <span className="font-medium">{r.sport?.discipline || "—"}</span>
                     {r.motifRefus && <span>: {r.motifRefus}</span>}
                   </li>
                 ))}

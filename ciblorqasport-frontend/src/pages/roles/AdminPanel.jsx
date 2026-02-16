@@ -205,6 +205,17 @@ export default function AdminPanel() {
     if (!compEnd) e.push("La date de fin est requise.");
     if (!compSport.trim()) e.push("Le sport associé est requis.");
     if (!compCountry.trim()) e.push("Le pays organisateur est requis.");
+    if (compStart && compEnd && new Date(compStart) > new Date(compEnd)) {
+      e.push("La date de début doit être antérieure à la date de fin.");
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (compStart && new Date(compStart) < today) {
+      e.push("La date de début ne peut pas être dans le passé.");
+    }
+    if (compEnd && new Date(compEnd) < today) {
+      e.push("La date de fin ne peut pas être dans le passé.");
+    }
     return e;
   };
 
@@ -296,6 +307,22 @@ export default function AdminPanel() {
       if (s > en) e.push("L'heure de début doit être antérieure ou égale à l'heure de fin pour l'épreuve.");
     }
     if (!epLieuId) e.push("Le lieu est requis.");
+    if (epDate && epCompetition) {
+      const comp = competitions.find(c => c.id === epCompetition);
+      if (comp) {
+        const dDate = new Date(epDate);
+        const dStart = new Date(comp.dateDebut);
+        const dEnd = new Date(comp.dateFin);
+        if (dDate < dStart || dDate > dEnd) {
+          e.push(`La date de l'épreuve doit être comprise entre le ${comp.dateDebut} et le ${comp.dateFin}.`);
+        }
+      }
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (epDate && new Date(epDate) < today) {
+      e.push("La date de l'épreuve ne peut pas être dans le passé.");
+    }
     return e;
   };
 
@@ -654,7 +681,12 @@ export default function AdminPanel() {
                     return (
                       <div key={ep.id} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
-                          <div className="font-bold text-lg">{ep.nom}</div>
+                          {ep.parent && (
+                            <div className="text-xs font-bold text-blue-600 uppercase tracking-wide">
+                              {ep.parent.nom}
+                            </div>
+                          )}
+                          <div className="font-bold text-lg text-gray-800">{ep.nom}</div>
                           <div className="text-sm text-gray-600">
                             {ep.discipline} • {ep.genre} • {lieuName}
                           </div>

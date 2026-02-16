@@ -96,7 +96,7 @@ export default function AthleteRequestForm({ onSuccess }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium">Sport</label>
+        <label className="block text-sm font-medium">Discipline</label>
         <select
           className="w-full border rounded p-2"
           value={sportId}
@@ -104,10 +104,10 @@ export default function AthleteRequestForm({ onSuccess }) {
           required
           disabled={loading || sports.length === 0}
         >
-          <option value="">-- Choisissez un sport --</option>
+          <option value="">-- Choisissez une discipline --</option>
           {sports.map((s) => (
-            <option key={s.id || s.sport_id} value={s.id || s.sport_id}>
-              {s.nom} ({s.typeSport}, {s.categorie})
+            <option key={s.id} value={s.id}>
+              {s.discipline} ({s.categorie}, {s.genre})
             </option>
           ))}
         </select>

@@ -192,7 +192,7 @@ export default function CommissaireRequests({ onlyPending = true }) {
           let list = [];
 
           if (viewMode === 'pending' || onlyPending) {
-            list = requests.filter((r) => /en[_ \-]?attente|pending/.test((r.status||"").toString().toLowerCase()));
+            list = requests.filter((r) => /en[_ \-]?attente|pending/.test((r.status || "").toString().toLowerCase()));
           } else if (viewMode === 'refused') {
             // group refused by user and keep latest per user
             const refusedBy = {};
@@ -206,12 +206,12 @@ export default function CommissaireRequests({ onlyPending = true }) {
               else {
                 try {
                   if (new Date(r.dateDemande || r.date || 0) > new Date(ex.dateDemande || ex.date || 0)) refusedBy[key] = r;
-                } catch (e) {}
+                } catch (e) { }
               }
             });
             list = Object.values(refusedBy);
           } else if (viewMode === 'accepted') {
-            list = requests.filter((r) => /accep/.test((r.status||"").toString().toLowerCase()));
+            list = requests.filter((r) => /accep/.test((r.status || "").toString().toLowerCase()));
           } else {
             // all: combine non-refused + latest refused per user
             const others = [];
@@ -226,7 +226,7 @@ export default function CommissaireRequests({ onlyPending = true }) {
                 else {
                   try {
                     if (new Date(r.dateDemande || r.date || 0) > new Date(ex.dateDemande || ex.date || 0)) refusedBy[key] = r;
-                  } catch (e) {}
+                  } catch (e) { }
                 }
               } else others.push(r);
             });
@@ -241,71 +241,71 @@ export default function CommissaireRequests({ onlyPending = true }) {
           });
 
           return list.map((r) => {
-          const statusStr = (r.status || "").toString().toLowerCase();
-          const isPending = /en[_ \-]?attente|pending/.test(statusStr);
-          const isRefused = /refus/.test(statusStr) || (!!r.motifRefus && !isPending);
-          const isAccepted = /accep/.test(statusStr);
+            const statusStr = (r.status || "").toString().toLowerCase();
+            const isPending = /en[_ \-]?attente|pending/.test(statusStr);
+            const isRefused = /refus/.test(statusStr) || (!!r.motifRefus && !isPending);
+            const isAccepted = /accep/.test(statusStr);
 
-          return (
-            <li key={r.id} className={`border p-4 rounded ${isRefused ? 'bg-pink-50 border-pink-300' : ''} ${isAccepted ? 'bg-green-50 border-green-300' : ''}`}>
-              <div className="flex justify-between">
-                <div>
-                  <p><strong>Utilisateur :</strong> {((r.userPrenom || r.userNom) ? `${r.userPrenom || ''} ${r.userNom || ''}`.trim() : r.userEmail) || '—'}</p>
-                  <p><strong>Sport :</strong> {r.sport?.nom}</p>
-                  <p><strong>Nation :</strong> {r.nation}</p>
-                  <p><strong>Genre :</strong> {r.genre}</p>
-                  <p><strong>Handicap :</strong> {String(r.handicap)}</p>
-                  <p className="flex items-center gap-3">
-                    <strong>Statut :</strong> {r.status}
-                    {isRefused && (
-                      <span className="inline-block bg-pink-100 text-pink-700 px-2 py-0.5 rounded text-xs">Refusée</span>
+            return (
+              <li key={r.id} className={`border p-4 rounded ${isRefused ? 'bg-pink-50 border-pink-300' : ''} ${isAccepted ? 'bg-green-50 border-green-300' : ''}`}>
+                <div className="flex justify-between">
+                  <div>
+                    <p><strong>Utilisateur :</strong> {((r.userPrenom || r.userNom) ? `${r.userPrenom || ''} ${r.userNom || ''}`.trim() : r.userEmail) || '—'}</p>
+                    <p><strong>Discipline :</strong> {r.sport?.discipline}</p>
+                    <p><strong>Nation :</strong> {r.nation}</p>
+                    <p><strong>Genre :</strong> {r.genre}</p>
+                    <p><strong>Handicap :</strong> {String(r.handicap)}</p>
+                    <p className="flex items-center gap-3">
+                      <strong>Statut :</strong> {r.status}
+                      {isRefused && (
+                        <span className="inline-block bg-pink-100 text-pink-700 px-2 py-0.5 rounded text-xs">Refusée</span>
+                      )}
+                      {isAccepted && (
+                        <span className="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">Acceptée</span>
+                      )}
+                    </p>
+                    {r.motifRefus && (
+                      <p className="text-pink-700"><strong>Motif :</strong> {r.motifRefus}</p>
                     )}
-                    {isAccepted && (
-                      <span className="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">Acceptée</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {isPending && (
+                      <>
+                        <button
+                          className="bg-green-600 text-white px-3 py-1 rounded"
+                          onClick={() => accept(r.id)}
+                        >
+                          Accepter
+                        </button>
+
+                        <button
+                          className="bg-red-600 text-white px-3 py-1 rounded"
+                          onClick={() => refuse(r.id)}
+                        >
+                          Refuser
+                        </button>
+                      </>
                     )}
-                  </p>
-                  {r.motifRefus && (
-                    <p className="text-pink-700"><strong>Motif :</strong> {r.motifRefus}</p>
-                  )}
-                </div>
 
-                <div className="space-y-2">
-                  {isPending && (
-                    <>
+                    {r.hasCertificat && (
                       <button
-                        className="bg-green-600 text-white px-3 py-1 rounded"
-                        onClick={() => accept(r.id)}
-                      >
-                        Accepter
+                        className=" bg-gray-400  text-white px-3 py-1 rounded"
+                        onClick={() => downloadCertificat(r)}>
+                        Télécharger certificat
                       </button>
+                    )}
 
-                      <button
-                        className="bg-red-600 text-white px-3 py-1 rounded"
-                        onClick={() => refuse(r.id)}
-                      >
-                        Refuser
-                      </button>
-                    </>
-                  )}
-
-                  {r.hasCertificat && (
-                    <button 
-                      className=" bg-gray-400  text-white px-3 py-1 rounded"
-                      onClick={() => downloadCertificat(r)}>
-                      Télécharger certificat
+                    <button
+                      className="bg-blue-600 text-white px-3 py-1 rounded"
+                      onClick={() => showDetails(r)}
+                    >
+                      Détails
                     </button>
-                  )}
-
-                  <button
-                    className="bg-blue-600 text-white px-3 py-1 rounded"
-                    onClick={() => showDetails(r)}
-                  >
-                    Détails
-                  </button>
+                  </div>
                 </div>
-              </div>
-            </li>
-          );
+              </li>
+            );
           });
         })()}
       </ul>
@@ -357,7 +357,7 @@ export default function CommissaireRequests({ onlyPending = true }) {
                             <p><strong>Genre:</strong> {d.genre || '—'}</p>
                             <p><strong>Handicap:</strong> {String(d.handicap)}</p>
                             {d.hasCertificat && (
-                              <p><a className="text-blue-600 underline" href="#" onClick={(e)=>{e.preventDefault(); downloadCertificat(d);}}>Télécharger certificat</a></p>
+                              <p><a className="text-blue-600 underline" href="#" onClick={(e) => { e.preventDefault(); downloadCertificat(d); }}>Télécharger certificat</a></p>
                             )}
                           </div>
                         )}
