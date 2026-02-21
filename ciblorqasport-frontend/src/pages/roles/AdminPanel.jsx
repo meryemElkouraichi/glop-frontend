@@ -81,7 +81,16 @@ export default function AdminPanel() {
   // List of epreuves for display
   const [epreuvesList, setEpreuvesList] = useState([]);
 
-  // Épreuve du jour (mock)
+  // State for participants management
+  const [showParticipantModal, setShowParticipantModal] = useState(false);
+  const [currentEpForParticipants, setCurrentEpForParticipants] = useState(null);
+  const [eligibleAthletes, setEligibleAthletes] = useState([]);
+  const [currentParticipants, setCurrentParticipants] = useState([]);
+  const [selectedAthleteId, setSelectedAthleteId] = useState("");
+  const [partLoading, setPartLoading] = useState(false);
+  const [partError, setPartError] = useState("");
+  const [partSuccess, setPartSuccess] = useState("");
+
   const [epDay] = useState([
     { id: 1, name: "50m Libre Hommes (Natation)", status: "en_cours", sport: "Natation" },
     { id: 2, name: "100m Papillon Femmes (Natation)", status: "fini", sport: "Natation" },
@@ -400,9 +409,46 @@ export default function AdminPanel() {
     setEpErrors([]);
   };
 
-  const addParticipants = (ep) => {
-    // TODO: Implement add participants functionality
-    alert("Fonctionnalité d'ajout de participants à venir");
+  const addParticipants = async (ep) => {
+    setCurrentEpForParticipants(ep);
+    setShowParticipantModal(true);
+    setPartError("");
+    setPartSuccess("");
+    setPartLoading(true);
+    try {
+      // Fetch currently registered participants
+      const resCurrent = await apiFetch(`/epreuves/${ep.id}/participants`);
+      setCurrentParticipants(resCurrent.data || []);
+
+      // Fetch eligible athletes
+      const resEligible = await apiFetch(`/epreuves/${ep.id}/participants/eligible`);
+      setEligibleAthletes(resEligible.data || []);
+    } catch (err) {
+      setPartError("Erreur lors du chargement des athlètes.");
+    } finally {
+      setPartLoading(false);
+    }
+  };
+
+  const submitAddParticipant = async () => {
+    if (!selectedAthleteId) return;
+    setPartLoading(true);
+    setPartError("");
+    setPartSuccess("");
+    try {
+      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`, {
+        method: "POST",
+        data: { athleteId: selectedAthleteId }
+      });
+      setPartSuccess("Athlète ajouté !");
+      setSelectedAthleteId("");
+      // Refresh lists
+      addParticipants(currentEpForParticipants);
+    } catch (err) {
+      setPartError(err.response?.data?.message || "Erreur lors de l'ajout.");
+    } finally {
+      setPartLoading(false);
+    }
   };
 
   return (
@@ -969,7 +1015,88 @@ export default function AdminPanel() {
             </div>
           )}
         </section>
-      </div >
-    </div >
+
+        {/* MODAL PARTICIPANTS */}
+        {showParticipantModal && currentEpForParticipants && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowParticipantModal(false)}></div>
+            <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">Gestion des participants</h3>
+                  <p className="text-sm text-gray-600">
+                    {currentEpForParticipants.nom} ({currentEpForParticipants.discipline})
+                  </p>
+                </div>
+                <button onClick={() => setShowParticipantModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light">&times;</button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                {/* Ajouter un participant */}
+                <section className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                  <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3">Ajouter un athlète</h4>
+                  <div className="flex gap-2">
+                    <select
+                      className="flex-1 border rounded-lg px-3 py-2 bg-white"
+                      value={selectedAthleteId}
+                      onChange={(e) => setSelectedAthleteId(e.target.value)}
+                      disabled={partLoading || eligibleAthletes.length === 0}
+                    >
+                      <option value="">-- Sélectionner un athlète éligible --</option>
+                      {eligibleAthletes.map(a => (
+                        <option key={a.id} value={a.id}>{a.prenom} {a.nom} ({a.nation})</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={submitAddParticipant}
+                      disabled={!selectedAthleteId || partLoading}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                    >
+                      {partLoading ? "Ajout..." : "Ajouter"}
+                    </button>
+                  </div>
+                  {eligibleAthletes.length === 0 && !partLoading && (
+                    <p className="text-xs text-amber-700 mt-2 italic">
+                      Aucun athlète éligible trouvé pour cette discipline et ce genre ({currentEpForParticipants.genre}).
+                    </p>
+                  )}
+                  {partError && <p className="text-red-600 text-sm mt-2">{partError}</p>}
+                  {partSuccess && <p className="text-green-600 text-sm mt-2">{partSuccess}</p>}
+                </section>
+
+                {/* Liste actuelle */}
+                <section>
+                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits ({currentParticipants.length})</h4>
+                  {currentParticipants.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                      <p className="text-gray-500">Aucun participant pour le moment.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {currentParticipants.map(p => (
+                        <div key={p.id} className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm">
+                          <span className="font-medium text-gray-800">{p.prenom} {p.nom}</span>
+                          {/* Optionnel: bouton supprimer participation */}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+
+              <div className="p-4 border-t bg-gray-50 flex justify-end">
+                <button
+                  onClick={() => setShowParticipantModal(false)}
+                  className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
+
