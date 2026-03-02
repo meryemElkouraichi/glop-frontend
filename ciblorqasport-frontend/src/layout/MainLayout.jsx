@@ -20,9 +20,10 @@ import Tickets from "../pages/Tickets";
 import AthleteDashboard from "../pages/roles/AthleteDashboard";
 import SpectatorDashboard from "../pages/roles/SpectatorDashboard";
 import CommissairePanel from "../pages/roles/CommissairePanel";
-import VolontaireSchedule from "../pages/roles/VolunteerSchedule";
-import AdministrateurPanel from "../pages/roles/AdminPanel";
+import VolunteerSchedule from "../pages/roles/VolunteerSchedule";
+import AdminPanel from "../pages/roles/AdminPanel";
 import MyRequests from "../pages/MyRequests";
+import ResultatsEpreuve from "../pages/roles/ResultatsEpreuve";
 
 import { ROLES } from "../constants/roles";
 
@@ -64,8 +65,15 @@ export default function MainLayout() {
           <Route path="/register" element={<Register />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
+          <Route
+            path="/events/:id/resultats"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.COMMISSAIRE, ROLES.ADMIN]}>
+                <ResultatsEpreuve />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/map" element={<MapView />} />
-          {/* Route /security removed (rubrique sécurité supprimée) */}
 
           {/* Notifications et profil (tous les rôles connectés) */}
           <Route
