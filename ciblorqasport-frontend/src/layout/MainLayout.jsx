@@ -147,7 +147,7 @@ export default function MainLayout() {
             path="/volontaire"
             element={
               <ProtectedRoute allowedRoles={[ROLES.VOLONTAIRE]}>
-                <VolontaireSchedule />
+                <VolunteerSchedule />
               </ProtectedRoute>
             }
           />
@@ -157,7 +157,7 @@ export default function MainLayout() {
             path="/administrateur"
             element={
               <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                <AdministrateurPanel />
+                <AdminPanel />
               </ProtectedRoute>
             }
           />
