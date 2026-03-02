@@ -49,6 +49,47 @@ export default function AdminPanel() {
   const [cerErrors, setCerErrors] = useState([]);
   const [cerSuccess, setCerSuccess] = useState("");
 
+  const submitCeremonie = (ev) => {
+    ev.preventDefault();
+    setCerErrors([]);
+    setCerSuccess("");
+    const e = [];
+    if (!cerName.trim()) e.push("Le nom de la cérémonie est requis.");
+    if (!cerCompetition) e.push("La compétition parente est requise.");
+    if (!cerDate) e.push("La date est requise.");
+    if (!cerStartTime) e.push("L'heure de début est requise.");
+    if (!cerEndTime) e.push("L'heure de fin est requise.");
+    if (!cerType) e.push("Le type de cérémonie est requis.");
+    if (!cerLocation.trim()) e.push("Le lieu est requis.");
+    if (e.length) { setCerErrors(e); return; }
+
+    const payload = {
+      typeObjet: "CEREMONIE",
+      nom: cerName,
+      dateDebut: cerDate,
+      dateFin: cerDate,
+      heureDebut: cerStartTime,
+      heureFin: cerEndTime,
+      lieuSpecifique: cerLocation,
+      status: "Planifié",
+      type: "Cérémonie",
+      typeCeremonie: cerType.toUpperCase() // OUVERTURE, CLOTURE, REMISE_MEDAILLES
+    };
+
+    apiFetch(`/competitions/${cerCompetition}/children`, {
+      method: "POST",
+      data: payload
+    })
+      .then(() => {
+        setCerSuccess("Cérémonie créée avec succès !");
+        setCerName(""); setCerCompetition(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription("");
+      })
+      .catch((err) => {
+        console.error(err);
+        setCerErrors(["Erreur : " + (err.response?.data?.message || err.message)]);
+      });
+  };
+
   // Alerte sécurité form state
   const [alertTitle, setAlertTitle] = useState("");
   const [alertDescription, setAlertDescription] = useState("");
@@ -207,12 +248,32 @@ export default function AdminPanel() {
     }
   }, [location]);
 
+  // Competitions list for dropdowns
+  const [competitionsList, setCompetitionsList] = useState([]);
+
+  useEffect(() => {
+    fetchCompetitions();
+  }, []);
+
+  const fetchCompetitions = () => {
+    apiFetch("/competitions").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setCompetitionsList(r.data);
+      }
+    });
+  };
+
   const validateCompetition = () => {
     const e = [];
     if (!compName.trim()) e.push("Le nom de la compétition est requis.");
     if (!compStart) e.push("La date de début est requise.");
     if (!compEnd) e.push("La date de fin est requise.");
     if (!compSport.trim()) e.push("Le sport associé est requis.");
+    if (compStart && compEnd) {
+      const start = new Date(compStart);
+      const end = new Date(compEnd);
+      if (start > end) e.push("La date de début doit être antérieure ou égale à la date de fin.");
+    }
     if (!compCountry.trim()) e.push("Le pays organisateur est requis.");
     if (compStart && compEnd && new Date(compStart) > new Date(compEnd)) {
       e.push("La date de début doit être antérieure à la date de fin.");
@@ -241,9 +302,11 @@ export default function AdminPanel() {
     const competitionData = {
       typeObjet: "COMPETITION",
       nom: compName,
-      type: compSport,
+      type: compSport || "Général",
       dateDebut: compStart,
       dateFin: compEnd,
+      heureDebut: compStartTime || "00:00:00",
+      heureFin: compEndTime || "23:59:59",
       paysOrganisateur: compCountry,
       status: "Planifié"
     };
@@ -262,49 +325,20 @@ export default function AdminPanel() {
         });
         setCompSuccess("Compétition créée !");
       }
-      setCompName(""); setCompStart(""); setCompEnd(""); setCompCountry(""); setCompSport("");
+      setCompName(""); setCompStart(""); setCompStartTime(""); setCompEnd(""); setCompEndTime(""); setCompCountry(""); setCompSport("");
       setEditingCompId(null);
       loadCompetitions();
+      fetchCompetitions();
     } catch (error) {
-      setCompErrors(["Erreur lors de l'enregistrement."]);
+      console.error(error);
+      setCompErrors(["Erreur lors de l'enregistrement: " + (error.response?.data?.message || error.message)]);
     }
-  };
-
-  const deleteCompetition = async (id) => {
-    if (!window.confirm("Supprimer cette compétition ?")) return;
-    try {
-      await apiFetch(`/competitions/${id}`, { method: "DELETE" });
-      loadCompetitions();
-    } catch (e) {
-      alert("Erreur suppression");
-    }
-  };
-
-  const editCompetition = (c) => {
-    setEditingCompId(c.id);
-    setCompName(c.nom);
-    setCompStart(c.dateDebut);
-    setCompEnd(c.dateFin);
-    setCompSport(c.type);
-    setCompCountry(c.paysOrganisateur);
-    setCompSuccess("");
-    setCompErrors([]);
-  };
-
-  const calculateDaysUntil = (dateStr) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(dateStr);
-    target.setHours(0, 0, 0, 0);
-    const diff = target - today;
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days;
   };
 
   const validateEpreuve = () => {
     const e = [];
     if (!epName.trim()) e.push("Le nom de l'épreuve est requis.");
-    if (!epCompetition.trim()) e.push("La compétition associée est requise.");
+    if (!epCompetition.trim()) e.push("La compétition parente est requise.");
     if (!epDiscipline.trim()) e.push("La discipline est requise.");
     if (!epGenre.trim()) e.push("Le genre est requis.");
     if (!epDate) e.push("La date de l'épreuve est requise.");
@@ -316,17 +350,8 @@ export default function AdminPanel() {
       if (s > en) e.push("L'heure de début doit être antérieure ou égale à l'heure de fin pour l'épreuve.");
     }
     if (!epLieuId) e.push("Le lieu est requis.");
-    if (epDate && epCompetition) {
-      const comp = competitions.find(c => c.id === epCompetition);
-      if (comp) {
-        const dDate = new Date(epDate);
-        const dStart = new Date(comp.dateDebut);
-        const dEnd = new Date(comp.dateFin);
-        if (dDate < dStart || dDate > dEnd) {
-          e.push(`La date de l'épreuve doit être comprise entre le ${comp.dateDebut} et le ${comp.dateFin}.`);
-        }
-      }
-    }
+
+    // Check if the epreuve date makes sense relative to today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (epDate && new Date(epDate) < today) {
@@ -382,72 +407,6 @@ export default function AdminPanel() {
       console.error("Erreur enregistrement épreuve:", error);
       const msg = error.response?.data || "Erreur lors de l'enregistrement de l'épreuve. Vérifiez les dates par rapport à la compétition.";
       setEpErrors([typeof msg === 'string' ? msg : "Erreur serveur."]);
-    }
-  };
-
-  const deleteEpreuve = async (id) => {
-    if (!window.confirm("Supprimer cette épreuve ?")) return;
-    try {
-      await apiFetch(`/epreuves/${id}`, { method: "DELETE" });
-      loadEpreuves();
-    } catch (e) {
-      alert("Erreur suppression");
-    }
-  };
-
-  const editEpreuve = (ep) => {
-    setEditingEpId(ep.id);
-    setEpName(ep.nom);
-    setEpCompetition(ep.parent ? ep.parent.id : "");
-    setEpDiscipline(ep.discipline || "");
-    setEpGenre(ep.genre || "");
-    setEpDate(ep.dateDebut || "");
-    setEpStartTime(ep.heureDebut || "");
-    setEpEndTime(ep.heureFin || "");
-    setEpLieuId(ep.lieu ? ep.lieu.id : "");
-    setEpSuccess("");
-    setEpErrors([]);
-  };
-
-  const addParticipants = async (ep) => {
-    setCurrentEpForParticipants(ep);
-    setShowParticipantModal(true);
-    setPartError("");
-    setPartSuccess("");
-    setPartLoading(true);
-    try {
-      // Fetch currently registered participants
-      const resCurrent = await apiFetch(`/epreuves/${ep.id}/participants`);
-      setCurrentParticipants(resCurrent.data || []);
-
-      // Fetch eligible athletes
-      const resEligible = await apiFetch(`/epreuves/${ep.id}/participants/eligible`);
-      setEligibleAthletes(resEligible.data || []);
-    } catch (err) {
-      setPartError("Erreur lors du chargement des athlètes.");
-    } finally {
-      setPartLoading(false);
-    }
-  };
-
-  const submitAddParticipant = async () => {
-    if (!selectedAthleteId) return;
-    setPartLoading(true);
-    setPartError("");
-    setPartSuccess("");
-    try {
-      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`, {
-        method: "POST",
-        data: { athleteId: selectedAthleteId }
-      });
-      setPartSuccess("Athlète ajouté !");
-      setSelectedAthleteId("");
-      // Refresh lists
-      addParticipants(currentEpForParticipants);
-    } catch (err) {
-      setPartError(err.response?.data?.message || "Erreur lors de l'ajout.");
-    } finally {
-      setPartLoading(false);
     }
   };
 
@@ -637,7 +596,7 @@ export default function AdminPanel() {
                       <option key={c.id} value={c.id}>{c.nom}</option>
                     ))}
                   </select>
-                </div>
+                </div >
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm">Discipline</label>
@@ -715,7 +674,7 @@ export default function AdminPanel() {
                     </button>
                   )}
                 </div>
-              </form>
+              </form >
 
               <div className="mt-8 border-t pt-4">
                 <h5 className="font-semibold mb-4 text-gray-700">Liste des épreuves</h5>
@@ -768,335 +727,353 @@ export default function AdminPanel() {
                   })}
                 </div>
               </div>
-            </div>
-          )}
+            </div >
+          )
+          }
 
-          {tab === "ceremonie" && (
-            <div className="bg-white p-4 rounded shadow">
-              <h4 className="text-lg font-medium mb-3">Créer une cérémonie</h4>
-              <form onSubmit={async (ev) => {
-                ev.preventDefault();
-                setCerErrors([]);
-                setCerSuccess("");
-                const e = [];
-                if (!cerName.trim()) e.push("Le nom de la cérémonie est requis.");
-                if (!cerDate) e.push("La date est requise.");
-                if (!cerStartTime) e.push("L'heure de début est requise.");
-                if (!cerEndTime) e.push("L'heure de fin est requise.");
-                if (cerDate && cerStartTime && cerEndTime) {
-                  const s = new Date(cerDate + "T" + cerStartTime);
-                  const en = new Date(cerDate + "T" + cerEndTime);
-                  if (s > en) e.push("L'heure de début doit être antérieure ou égale à l'heure de fin pour la cérémonie.");
-                }
-                if (!cerType) e.push("Le type de cérémonie est requis.");
-                if (!cerLocation.trim()) e.push("Le lieu est requis.");
-                if (e.length) { setCerErrors(e); return; }
+          {
+            tab === "ceremonie" && (
+              <div className="bg-white p-4 rounded shadow">
+                <h4 className="text-lg font-medium mb-3">Créer une cérémonie</h4>
+                <form onSubmit={async (ev) => {
+                  ev.preventDefault();
+                  setCerErrors([]);
+                  setCerSuccess("");
+                  const e = [];
+                  if (!cerName.trim()) e.push("Le nom de la cérémonie est requis.");
+                  if (!cerDate) e.push("La date est requise.");
+                  if (!cerStartTime) e.push("L'heure de début est requise.");
+                  if (!cerEndTime) e.push("L'heure de fin est requise.");
+                  if (cerDate && cerStartTime && cerEndTime) {
+                    const s = new Date(cerDate + "T" + cerStartTime);
+                    const en = new Date(cerDate + "T" + cerEndTime);
+                    if (s > en) e.push("L'heure de début doit être antérieure ou égale à l'heure de fin pour la cérémonie.");
+                  }
+                  if (!cerType) e.push("Le type de cérémonie est requis.");
+                  if (!cerLocation.trim()) e.push("Le lieu est requis.");
+                  if (e.length) { setCerErrors(e); return; }
 
-                const mapCerType = (t) => {
-                  if (t === "remise_prix") return "REMISE_MEDAILLES";
-                  return t.toUpperCase();
-                };
+                  const mapCerType = (t) => {
+                    if (t === "remise_prix") return "REMISE_MEDAILLES";
+                    return t.toUpperCase();
+                  };
 
-                const ceremonieData = {
-                  typeObjet: "CEREMONIE",
-                  nom: cerName,
-                  type: "Cérémonie",
-                  dateDebut: cerDate,
-                  dateFin: cerDate,
-                  heureDebut: cerStartTime,
-                  heureFin: cerEndTime,
-                  paysOrganisateur: cerLocation,
-                  status: "Planifié",
-                  typeCeremonie: mapCerType(cerType)
-                };
+                  const ceremonieData = {
+                    typeObjet: "CEREMONIE",
+                    nom: cerName,
+                    type: "Cérémonie",
+                    dateDebut: cerDate,
+                    dateFin: cerDate,
+                    heureDebut: cerStartTime,
+                    heureFin: cerEndTime,
+                    paysOrganisateur: cerLocation,
+                    status: "Planifié",
+                    typeCeremonie: mapCerType(cerType)
+                  };
 
-                try {
-                  const url = cerCompetition
-                    ? `/competitions/${cerCompetition}/children`
-                    : "/events"; // Fallback to generic events if no competition
+                  try {
+                    const url = cerCompetition
+                      ? `/competitions/${cerCompetition}/children`
+                      : "/events"; // Fallback to generic events if no competition
 
-                  await apiFetch(url, {
-                    method: "POST",
-                    data: ceremonieData
-                  });
-                  setCerSuccess("Cérémonie créée avec succès !");
-                  setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription(""); setCerCompetition("");
-                } catch (error) {
-                  console.error("Erreur création cérémonie:", error);
-                  setCerErrors(["Erreur lors de la création de la cérémonie sur le serveur."]);
-                }
-              }} className="space-y-3">
-                <div>
-                  <label className="block text-sm">Nom de la cérémonie</label>
-                  <input value={cerName} onChange={(e) => setCerName(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                </div>
-                <div>
-                  <label className="block text-sm">Compétition associée (Optionnel)</label>
-                  <select
-                    value={cerCompetition}
-                    onChange={(e) => setCerCompetition(e.target.value)}
-                    className="mt-1 block w-full border rounded p-2"
-                  >
-                    <option value="">-- Sans compétition --</option>
-                    {competitions.map(c => (
-                      <option key={c.id} value={c.id}>{c.nom}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-4 gap-3">
+                    await apiFetch(url, {
+                      method: "POST",
+                      data: ceremonieData
+                    });
+                    setCerSuccess("Cérémonie créée avec succès !");
+                    setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription(""); setCerCompetition("");
+                  } catch (error) {
+                    console.error("Erreur création cérémonie:", error);
+                    setCerErrors(["Erreur lors de la création de la cérémonie sur le serveur."]);
+                  }
+                }} className="space-y-3">
                   <div>
-                    <label className="block text-sm">Date</label>
-                    <input type="date" value={cerDate} onChange={(e) => setCerDate(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    <label className="block text-sm">Compétition Parente</label>
+                    <select value={cerCompetition} onChange={(e) => setCerCompetition(e.target.value)} className="mt-1 block w-full border rounded p-2">
+                      <option value="">-- Choisir une compétition --</option>
+                      {competitions.map(c => (
+                        <option key={c.id} value={c.id}>{c.nom}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm">Heure début</label>
-                    <input type="time" value={cerStartTime} onChange={(e) => setCerStartTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    <label className="block text-sm">Nom de la cérémonie</label>
+                    <input value={cerName} onChange={(e) => setCerName(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                   </div>
                   <div>
-                    <label className="block text-sm">Heure fin</label>
-                    <input type="time" value={cerEndTime} onChange={(e) => setCerEndTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    <label className="block text-sm">Compétition associée (Optionnel)</label>
+                    <select
+                      value={cerCompetition}
+                      onChange={(e) => setCerCompetition(e.target.value)}
+                      className="mt-1 block w-full border rounded p-2"
+                    >
+                      <option value="">-- Sans compétition --</option>
+                      {competitions.map(c => (
+                        <option key={c.id} value={c.id}>{c.nom}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-sm">Date</label>
+                      <input type="date" value={cerDate} onChange={(e) => setCerDate(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm">Heure début</label>
+                      <input type="time" value={cerStartTime} onChange={(e) => setCerStartTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm">Heure fin</label>
+                      <input type="time" value={cerEndTime} onChange={(e) => setCerEndTime(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    </div>
+                    <div>
+                      <label className="block text-sm">Lieu</label>
+                      <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm">Type de cérémonie</label>
+                    <select value={cerType} onChange={(e) => setCerType(e.target.value)} className="mt-1 block w-full border rounded p-2">
+                      <option value="">-- Choisir --</option>
+                      <option value="ouverture">Cérémonie d'ouverture</option>
+                      <option value="cloture">Cérémonie de clôture</option>
+                      <option value="remise_prix">Cérémonie de remise de prix</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm">Lieu</label>
                     <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm">Type de cérémonie</label>
-                  <select value={cerType} onChange={(e) => setCerType(e.target.value)} className="mt-1 block w-full border rounded p-2">
-                    <option value="">-- Choisir --</option>
-                    <option value="ouverture">Cérémonie d'ouverture</option>
-                    <option value="cloture">Cérémonie de clôture</option>
-                    <option value="remise_prix">Cérémonie de remise de prix</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm">Lieu</label>
-                  <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                </div>
-                <div>
-                  <label className="block text-sm">Description (optionnel)</label>
-                  <textarea value={cerDescription} onChange={(e) => setCerDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
-                </div>
+                  <div>
+                    <label className="block text-sm">Description (optionnel)</label>
+                    <textarea value={cerDescription} onChange={(e) => setCerDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
+                  </div>
 
-                {cerErrors.length > 0 && <div className="text-red-600">{cerErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
-                {cerSuccess && <div className="text-green-600">{cerSuccess}</div>}
+                  {cerErrors.length > 0 && <div className="text-red-600">{cerErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
+                  {cerSuccess && <div className="text-green-600">{cerSuccess}</div>}
 
-                <div className="flex gap-2">
-                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
-                </div>
-              </form>
-            </div>
-          )}
+                  <div className="flex gap-2">
+                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                  </div>
+                </form>
+              </div>
+            )
+          }
 
-          {tab === "analytics" && (
-            <div className="bg-white p-4 rounded shadow">
-              <h4 className="text-lg font-medium mb-3">Analyses & Statistiques d'usage</h4>
-              {analytics ? (
-                <div className="space-y-2">
-                  <div>Utilisateurs actifs : {analytics.dailyActive.join(", ")}</div>
-                  <div>Durée moyenne : {analytics.avgSession} min</div>
-                </div>
-              ) : (
-                <p>Chargement...</p>
-              )}
-            </div>
-          )}
-          {tab === 'alerte' && (
-            <div className="bg-white p-4 rounded shadow">
-              <h4 className="text-lg font-medium mb-3">Créer une alerte sécurité</h4>
-              <form onSubmit={(ev) => {
-                ev.preventDefault();
-                setAlertErrors([]);
-                setAlertSuccess("");
-                const e = [];
-                if (!alertTitle.trim()) e.push("Le titre est requis.");
-                if (!alertLevel) e.push("Le niveau est requis.");
-                if (e.length) { setAlertErrors(e); return; }
-
-                const mapLevel = (l) => {
-                  if (l === 'critique') return 'CRITIQUE';
-                  if (l === 'alerte') return 'IMPORTANT';
-                  return 'INFORMATIONNEL';
-                };
-
-                apiFetch("/incidents", {
-                  method: "POST",
-                  data: {
-                    description: alertTitle + " : " + alertDescription,
-                    lieu: alertLocation || "Non spécifié",
-                    level: mapLevel(alertLevel)
-                  }
-                }).then(() => {
-                  setAlertSuccess("Alerte publiée et notifications envoyées !");
-                  setAlertTitle("");
-                  setAlertDescription("");
-                  setAlertLevel("");
-                  setAlertLocation("");
-                  loadIncidents(); // Recharger la liste des incidents
-                }).catch(err => {
-                  console.error("Axios check - Error:", err);
-                  if (err.response) {
-                    console.error("Axios check - Status:", err.response.status);
-                    console.error("Axios check - Data:", err.response.data);
-                  } else if (err.request) {
-                    console.error("Axios check - No response received (Network Error?)");
-                  }
-                  setAlertErrors(["Erreur technique : " + (err.response?.data?.message || err.message)]);
-                });
-
-              }} className="space-y-3">
-                <div>
-                  <label className="block text-sm">Titre</label>
-                  <input value={alertTitle} onChange={(e) => setAlertTitle(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                </div>
-                <div>
-                  <label className="block text-sm">Niveau</label>
-                  <select value={alertLevel} onChange={(e) => setAlertLevel(e.target.value)} className="mt-1 block w-full border rounded p-2">
-                    <option value="">-- Choisir --</option>
-                    <option value="info">Info (Spectateurs)</option>
-                    <option value="alerte">Alerte (Staff/Athlètes)</option>
-                    <option value="critique">Critique (Tout le monde)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm">Lieu (Optionnel)</label>
-                  <input value={alertLocation} onChange={(e) => setAlertLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" placeholder="Ex: Piscine Olympique" />
-                </div>
-                <div>
-                  <label className="block text-sm">Description</label>
-                  <textarea value={alertDescription} onChange={(e) => setAlertDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
-                </div>
-                {alertErrors.length > 0 && <div className="text-red-600">{alertErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
-                {alertSuccess && <div className="text-green-600">{alertSuccess}</div>}
-                <div className="flex gap-2">
-                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Publier l'alerte</button>
-                </div>
-              </form>
-
-              {/* Liste des incidents */}
-              <div className="mt-6 border-t pt-4">
-                <h5 className="text-md font-medium mb-3">Incidents en cours</h5>
-                {incidents.length === 0 ? (
-                  <p className="text-gray-500">Aucun incident.</p>
+          {
+            tab === "analytics" && (
+              <div className="bg-white p-4 rounded shadow">
+                <h4 className="text-lg font-medium mb-3">Analyses & Statistiques d'usage</h4>
+                {analytics ? (
+                  <div className="space-y-2">
+                    <div>Utilisateurs actifs : {analytics.dailyActive.join(", ")}</div>
+                    <div>Durée moyenne : {analytics.avgSession} min</div>
+                  </div>
                 ) : (
-                  <ul className="space-y-2">
-                    {incidents.map((inc) => (
-                      <li key={inc.id} className={`p-3 border rounded flex justify-between items-center ${inc.status === 'RESOLU' ? 'bg-gray-50 opacity-70' : 'bg-white'}`}>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${inc.level === 'CRITIQUE' ? 'bg-red-100 text-red-800' :
-                              inc.level === 'IMPORTANT' ? 'bg-orange-100 text-orange-800' :
-                                'bg-blue-100 text-blue-800'
-                              }`}>
-                              {inc.level}
-                            </span>
-                            <span className={`text-xs px-2 py-0.5 rounded ${inc.status === 'RESOLU' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                              {inc.status === 'RESOLU' ? '✅ Résolu' : '⚠️ En cours'}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm">{inc.description}</p>
-                          <p className="text-xs text-gray-500">{inc.lieu} • {new Date(inc.dateCreation).toLocaleString()}</p>
-                        </div>
-                        {inc.status !== 'RESOLU' && (
-                          <button
-                            onClick={() => resolveIncident(inc.id)}
-                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                          >
-                            Résoudre
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  <p>Chargement...</p>
                 )}
               </div>
-            </div>
-          )}
-        </section>
+            )
+          }
+          {
+            tab === 'alerte' && (
+              <div className="bg-white p-4 rounded shadow">
+                <h4 className="text-lg font-medium mb-3">Créer une alerte sécurité</h4>
+                <form onSubmit={(ev) => {
+                  ev.preventDefault();
+                  setAlertErrors([]);
+                  setAlertSuccess("");
+                  const e = [];
+                  if (!alertTitle.trim()) e.push("Le titre est requis.");
+                  if (!alertLevel) e.push("Le niveau est requis.");
+                  if (e.length) { setAlertErrors(e); return; }
+
+                  const mapLevel = (l) => {
+                    if (l === 'critique') return 'CRITIQUE';
+                    if (l === 'alerte') return 'IMPORTANT';
+                    return 'INFORMATIONNEL';
+                  };
+
+                  apiFetch("/incidents", {
+                    method: "POST",
+                    data: {
+                      description: alertTitle + " : " + alertDescription,
+                      lieu: alertLocation || "Non spécifié",
+                      level: mapLevel(alertLevel)
+                    }
+                  }).then(() => {
+                    setAlertSuccess("Alerte publiée et notifications envoyées !");
+                    setAlertTitle("");
+                    setAlertDescription("");
+                    setAlertLevel("");
+                    setAlertLocation("");
+                    loadIncidents(); // Recharger la liste des incidents
+                  }).catch(err => {
+                    console.error("Axios check - Error:", err);
+                    if (err.response) {
+                      console.error("Axios check - Status:", err.response.status);
+                      console.error("Axios check - Data:", err.response.data);
+                    } else if (err.request) {
+                      console.error("Axios check - No response received (Network Error?)");
+                    }
+                    setAlertErrors(["Erreur technique : " + (err.response?.data?.message || err.message)]);
+                  });
+
+                }} className="space-y-3">
+                  <div>
+                    <label className="block text-sm">Titre</label>
+                    <input value={alertTitle} onChange={(e) => setAlertTitle(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm">Niveau</label>
+                    <select value={alertLevel} onChange={(e) => setAlertLevel(e.target.value)} className="mt-1 block w-full border rounded p-2">
+                      <option value="">-- Choisir --</option>
+                      <option value="info">Info (Spectateurs)</option>
+                      <option value="alerte">Alerte (Staff/Athlètes)</option>
+                      <option value="critique">Critique (Tout le monde)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm">Lieu (Optionnel)</label>
+                    <input value={alertLocation} onChange={(e) => setAlertLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" placeholder="Ex: Piscine Olympique" />
+                  </div>
+                  <div>
+                    <label className="block text-sm">Description</label>
+                    <textarea value={alertDescription} onChange={(e) => setAlertDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
+                  </div>
+                  {alertErrors.length > 0 && <div className="text-red-600">{alertErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
+                  {alertSuccess && <div className="text-green-600">{alertSuccess}</div>}
+                  <div className="flex gap-2">
+                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Publier l'alerte</button>
+                  </div>
+                </form>
+
+                {/* Liste des incidents */}
+                <div className="mt-6 border-t pt-4">
+                  <h5 className="text-md font-medium mb-3">Incidents en cours</h5>
+                  {incidents.length === 0 ? (
+                    <p className="text-gray-500">Aucun incident.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {incidents.map((inc) => (
+                        <li key={inc.id} className={`p-3 border rounded flex justify-between items-center ${inc.status === 'RESOLU' ? 'bg-gray-50 opacity-70' : 'bg-white'}`}>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded ${inc.level === 'CRITIQUE' ? 'bg-red-100 text-red-800' :
+                                inc.level === 'IMPORTANT' ? 'bg-orange-100 text-orange-800' :
+                                  'bg-blue-100 text-blue-800'
+                                }`}>
+                                {inc.level}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded ${inc.status === 'RESOLU' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                {inc.status === 'RESOLU' ? '✅ Résolu' : '⚠️ En cours'}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm">{inc.description}</p>
+                            <p className="text-xs text-gray-500">{inc.lieu} • {new Date(inc.dateCreation).toLocaleString()}</p>
+                          </div>
+                          {inc.status !== 'RESOLU' && (
+                            <button
+                              onClick={() => resolveIncident(inc.id)}
+                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                            >
+                              Résoudre
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )
+          }
+        </section >
 
         {/* MODAL PARTICIPANTS */}
-        {showParticipantModal && currentEpForParticipants && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowParticipantModal(false)}></div>
-            <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">Gestion des participants</h3>
-                  <p className="text-sm text-gray-600">
-                    {currentEpForParticipants.nom} ({currentEpForParticipants.discipline})
-                  </p>
-                </div>
-                <button onClick={() => setShowParticipantModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light">&times;</button>
-              </div>
-
-              <div className="p-6 overflow-y-auto flex-1 space-y-6">
-                {/* Ajouter un participant */}
-                <section className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                  <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3">Ajouter un athlète</h4>
-                  <div className="flex gap-2">
-                    <select
-                      className="flex-1 border rounded-lg px-3 py-2 bg-white"
-                      value={selectedAthleteId}
-                      onChange={(e) => setSelectedAthleteId(e.target.value)}
-                      disabled={partLoading || eligibleAthletes.length === 0}
-                    >
-                      <option value="">-- Sélectionner un athlète éligible --</option>
-                      {eligibleAthletes.map(a => (
-                        <option key={a.id} value={a.id}>{a.prenom} {a.nom} ({a.nation})</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={submitAddParticipant}
-                      disabled={!selectedAthleteId || partLoading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                    >
-                      {partLoading ? "Ajout..." : "Ajouter"}
-                    </button>
-                  </div>
-                  {eligibleAthletes.length === 0 && !partLoading && (
-                    <p className="text-xs text-amber-700 mt-2 italic">
-                      Aucun athlète éligible trouvé pour cette discipline et ce genre ({currentEpForParticipants.genre}).
+        {
+          showParticipantModal && currentEpForParticipants && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowParticipantModal(false)}></div>
+              <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">Gestion des participants</h3>
+                    <p className="text-sm text-gray-600">
+                      {currentEpForParticipants.nom} ({currentEpForParticipants.discipline})
                     </p>
-                  )}
-                  {partError && <p className="text-red-600 text-sm mt-2">{partError}</p>}
-                  {partSuccess && <p className="text-green-600 text-sm mt-2">{partSuccess}</p>}
-                </section>
+                  </div>
+                  <button onClick={() => setShowParticipantModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light">&times;</button>
+                </div>
 
-                {/* Liste actuelle */}
-                <section>
-                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits ({currentParticipants.length})</h4>
-                  {currentParticipants.length === 0 ? (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                      <p className="text-gray-500">Aucun participant pour le moment.</p>
+                <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                  {/* Ajouter un participant */}
+                  <section className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3">Ajouter un athlète</h4>
+                    <div className="flex gap-2">
+                      <select
+                        className="flex-1 border rounded-lg px-3 py-2 bg-white"
+                        value={selectedAthleteId}
+                        onChange={(e) => setSelectedAthleteId(e.target.value)}
+                        disabled={partLoading || eligibleAthletes.length === 0}
+                      >
+                        <option value="">-- Sélectionner un athlète éligible --</option>
+                        {eligibleAthletes.map(a => (
+                          <option key={a.id} value={a.id}>{a.prenom} {a.nom} ({a.nation})</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={submitAddParticipant}
+                        disabled={!selectedAthleteId || partLoading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                      >
+                        {partLoading ? "Ajout..." : "Ajouter"}
+                      </button>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {currentParticipants.map(p => (
-                        <div key={p.id} className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm">
-                          <span className="font-medium text-gray-800">{p.prenom} {p.nom}</span>
-                          {/* Optionnel: bouton supprimer participation */}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </div>
+                    {eligibleAthletes.length === 0 && !partLoading && (
+                      <p className="text-xs text-amber-700 mt-2 italic">
+                        Aucun athlète éligible trouvé pour cette discipline et ce genre ({currentEpForParticipants.genre}).
+                      </p>
+                    )}
+                    {partError && <p className="text-red-600 text-sm mt-2">{partError}</p>}
+                    {partSuccess && <p className="text-green-600 text-sm mt-2">{partSuccess}</p>}
+                  </section>
 
-              <div className="p-4 border-t bg-gray-50 flex justify-end">
-                <button
-                  onClick={() => setShowParticipantModal(false)}
-                  className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
-                >
-                  Fermer
-                </button>
+                  {/* Liste actuelle */}
+                  <section>
+                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits ({currentParticipants.length})</h4>
+                    {currentParticipants.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                        <p className="text-gray-500">Aucun participant pour le moment.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {currentParticipants.map(p => (
+                          <div key={p.id} className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm">
+                            <span className="font-medium text-gray-800">{p.prenom} {p.nom}</span>
+                            {/* Optionnel: bouton supprimer participation */}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                <div className="p-4 border-t bg-gray-50 flex justify-end">
+                  <button
+                    onClick={() => setShowParticipantModal(false)}
+                    className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
+                  >
+                    Fermer
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+          )
+        }
+      </div >
+    </div >
   );
 }
 
