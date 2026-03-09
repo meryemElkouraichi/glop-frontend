@@ -31,15 +31,15 @@ export default function Tickets() {
     }
   };
 
-  // Fetch available events
+  // Fetch available epreuves (on utilise /api/epreuves qui retourne directement les épreuves)
   const fetchEvenements = async () => {
     try {
-      const res = await apiFetch("/events", {
+      const res = await apiFetch("/epreuves", {
         credentials: "include",
       });
-      setEvenements(res.data || []);
+      setEvenements(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Erreur lors de la récupération des événements:", err);
+      console.error("Erreur lors de la récupération des épreuves:", err);
     }
   };
 
@@ -285,8 +285,8 @@ export default function Tickets() {
                   <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                     {t.evenement?.nom || "Événement Olympique"}
                   </div>
-                  <div className="text-xs text-gray-400 font-medium">
-                    #{t.id.slice(0, 8)}
+                  <div className="text-xs text-gray-400 font-medium italic truncate max-w-[140px]">
+                    {t.nom}
                   </div>
                 </div>
 
@@ -303,7 +303,7 @@ export default function Tickets() {
                     </div>
                   </div>
 
-                  {t.nomFichier && (
+                  {t.nom && (
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -320,7 +320,7 @@ export default function Tickets() {
 
                 <div className="flex gap-3 pt-4 border-t border-gray-100">
                   <button
-                    onClick={() => downloadTicket(t.id, t.nomFichier)}
+                    onClick={() => downloadTicket(t.id, t.nom)}
                     className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

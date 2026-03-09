@@ -7,7 +7,7 @@ export const apiClient = axios.create({
 
 // Helper générique
 export async function apiFetch(path, opts = {}) {
-  const isFormData = !!opts.isFormData;
+  const isFormData = opts.body instanceof FormData || opts.data instanceof FormData;
 
   const headers = { ...(opts.headers || {}) };
 
@@ -17,7 +17,16 @@ export async function apiFetch(path, opts = {}) {
   }
 
   // Support 'body' as alias for 'data' for convenience
-  const requestData = opts.data || (opts.body ? JSON.parse(opts.body) : undefined);
+  let requestData = opts.data || opts.body;
+
+  // Only parse if body is a string and not FormData
+  if (typeof opts.body === "string" && !isFormData) {
+    try {
+      requestData = JSON.parse(opts.body);
+    } catch (e) {
+      requestData = opts.body;
+    }
+  }
 
   return apiClient.request({
     url: path,
