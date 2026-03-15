@@ -421,6 +421,104 @@ export default function AdminPanel() {
     }
   };
 
+  const calculateDaysUntil = (dateStr) => {
+    if (!dateStr) return 0;
+    const diff = new Date(dateStr) - new Date();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const editCompetition = (c) => {
+    setEditingCompId(c.id || c.evenement_id);
+    setCompName(c.nom || c.nomEvenement || "");
+    setCompStart(c.dateDebut || "");
+    setCompStartTime(c.heureDebut || "");
+    setCompEnd(c.dateFin || "");
+    setCompEndTime(c.heureFin || "");
+    setCompCountry(c.paysOrganisateur || "");
+    setCompSport(c.type || "");
+    setTab("competition");
+  };
+
+  const deleteCompetition = async (id) => {
+    if (!window.confirm("Supprimer cette compétition ?")) return;
+    try {
+      await apiFetch(`/competitions/${id}`, { method: "DELETE" });
+      loadCompetitions();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression");
+    }
+  };
+
+  const editEpreuve = (ep) => {
+    setEditingEpId(ep.id);
+    setEpName(ep.nom || "");
+    setEpCompetition(ep.parent?.id || "");
+    setEpDiscipline(ep.discipline || "");
+    setEpGenre(ep.genre || "");
+    setEpDate(ep.dateDebut || "");
+    setEpStartTime(ep.heureDebut || "");
+    setEpEndTime(ep.heureFin || "");
+    setEpLieuId(ep.lieu?.id || "");
+    setTab("epreuve");
+  };
+
+  const deleteEpreuve = async (id) => {
+    if (!window.confirm("Supprimer cette épreuve ?")) return;
+    try {
+      await apiFetch(`/epreuves/${id}`, { method: "DELETE" });
+      loadEpreuves();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression");
+    }
+  };
+
+  const addParticipants = async (ep) => {
+    setCurrentEpForParticipants(ep);
+    setShowParticipantModal(true);
+    setPartLoading(true);
+    setPartError("");
+    setPartSuccess("");
+    setSelectedAthleteId("");
+
+    try {
+      // 1. Charger les athlètes déjà inscrits
+      const resInscrits = await apiFetch(`/epreuves/${ep.id}/athletes`);
+      setCurrentParticipants(resInscrits.data || []);
+
+      // 2. Charger les athlètes éligibles (même discipline et genre)
+      const resEligibles = await apiFetch(`/athletes/eligible?discipline=${encodeURIComponent(ep.discipline)}&genre=${encodeURIComponent(ep.genre)}`);
+      setEligibleAthletes(resEligibles.data || []);
+    } catch (err) {
+      console.error(err);
+      setPartError("Erreur lors du chargement des athlètes.");
+    } finally {
+      setPartLoading(false);
+    }
+  };
+
+  const submitAddParticipant = async () => {
+    if (!selectedAthleteId || !currentEpForParticipants) return;
+    setPartLoading(true);
+    setPartError("");
+    setPartSuccess("");
+
+    try {
+      await apiFetch(`/epreuves/${currentEpForParticipants.id}/athletes/${selectedAthleteId}`, { method: "POST" });
+      setPartSuccess("Athlète ajouté !");
+      // Recharger la liste des participants
+      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/athletes`);
+      setCurrentParticipants(resInscrits.data || []);
+      setSelectedAthleteId("");
+    } catch (err) {
+      console.error(err);
+      setPartError("L'athlète est probablement déjà inscrit ou erreur serveur.");
+    } finally {
+      setPartLoading(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex gap-6">
