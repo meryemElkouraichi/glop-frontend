@@ -43,22 +43,49 @@ export default function ResultatsEpreuve() {
             // Initialize inputs from existing results if they exist
             const initialInputs = {};
             (resRes.data || []).forEach(res => {
-                if (res.athlete && res.athlete.id) {
+                const pId = res.athlete?.id || res.equipe?.id;
+                if (pId) {
                     let val = "";
-                    if (res.temps) val = res.temps;
+                    if (res.tempsSecondes != null) val = formatSecondsToTime(res.tempsSecondes);
                     if (res.score != null) val = res.score.toString();
                     if (res.points != null) val = res.points.toString();
-                    initialInputs[res.athlete.id] = { value: val };
+                    initialInputs[pId] = { value: val };
                 }
             });
             setInputs(initialInputs);
 
         } catch (err) {
             console.error("Error loading data:", err);
-            setError("Erreur lors du chargement des données. Veuillez vérifier que c'est bien une épreuve et non une compétition générale.");
+            setError("Erreur lors du chargement des données. Veuillez vérifier que c'est bien une épreuve.");
         } finally {
             setLoading(false);
         }
+    };
+
+    const parseTimeToSeconds = (input) => {
+        if (!input) return null;
+        if (!isNaN(input)) return parseFloat(input);
+
+        // Handle format MM:SS.ss or HH:MM:SS
+        const parts = input.split(':').map(parseFloat);
+        if (parts.length === 2) {
+            return (parts[0] * 60) + parts[1];
+        } else if (parts.length === 3) {
+            return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+        }
+        return null;
+    };
+
+    const formatSecondsToTime = (seconds) => {
+        if (seconds == null) return "";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = (seconds % 60).toFixed(2);
+
+        if (h > 0) {
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(5, '0')}`;
+        }
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(5, '0')}`;
     };
 
     const handleInputChange = (athleteId, value) => {
@@ -91,7 +118,7 @@ export default function ResultatsEpreuve() {
                     result.points = parseFloat(val);
                 } else {
                     // Default to time for swimming races, relays, etc.
-                    result.temps = val;
+                    result.tempsSecondes = parseTimeToSeconds(val);
                 }
 
                 return result;
@@ -139,7 +166,7 @@ export default function ResultatsEpreuve() {
     const isValide = resultats.length > 0 && resultats[0].statut === "VALIDE";
     const disc = (epreuve?.discipline || epreuve?.type || "").toLowerCase();
 
-    let inputLabel = "Temps (ex: PT1M30S ou 01:30.00)";
+    let inputLabel = "Temps (ex: 01:30.00)";
     let inputType = "text";
     if (disc.includes("water") || disc.includes("polo")) {
         inputLabel = "Score (Buts)";
@@ -261,11 +288,11 @@ export default function ResultatsEpreuve() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">{res.athlete?.prenom} {res.athlete?.nom}</div>
+                                                    <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
                                                     <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-medium text-gray-900">
-                                                    {res.temps && res.temps}
+                                                    {res.tempsSecondes != null && formatSecondsToTime(res.tempsSecondes)}
                                                     {res.score != null && `${res.score} buts`}
                                                     {res.points != null && `${res.points} pts`}
                                                 </td>
