@@ -10,7 +10,11 @@ export default function AdminPanel() {
   const [analytics, setAnalytics] = useState(null);
 
   // active tab: 'home' | 'competition' | 'epreuve' | 'ceremonie' | 'analytics' | 'alerte'
-  const [tab, setTab] = useState("home");
+  const [tab, setTab] = useState(localStorage.getItem("adminPanelTab") || "home");
+
+  useEffect(() => {
+    localStorage.setItem("adminPanelTab", tab);
+  }, [tab]);
 
   // Competition form state
   const [compName, setCompName] = useState("");
@@ -240,6 +244,13 @@ export default function AdminPanel() {
       setAlertErrors(["Erreur lors de la résolution de l'incident"]);
     }
   };
+
+  useEffect(() => {
+    if (tab === "competition") loadCompetitions();
+    if (tab === "epreuve") loadEpreuves();
+    if (tab === "ceremonie") loadLieux(); // Cérémonie a besoin des lieux
+    if (tab === "alerte") loadIncidents();
+  }, [tab]);
 
   useEffect(() => {
     if (location && location.hash) {
@@ -541,10 +552,12 @@ export default function AdminPanel() {
                   {competitions.length === 0 && <p className="text-gray-500 italic">Aucune compétition trouvée.</p>}
                   {competitions.map((c) => {
                     const days = calculateDaysUntil(c.dateDebut);
+                    const cid = c.id || c.evenement_id;
+                    const cname = c.nom || c.nomEvenement || "Compétition sans nom";
                     return (
-                      <div key={c.id} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div key={cid} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
-                          <div className="font-bold text-lg">{c.nom}</div>
+                          <div className="font-bold text-lg">{cname}</div>
                           <div className="text-sm text-gray-600">
                             {c.paysOrganisateur} • {c.type}
                           </div>
@@ -560,7 +573,7 @@ export default function AdminPanel() {
                             Modifier
                           </button>
                           <button
-                            onClick={() => deleteCompetition(c.id)}
+                            onClick={() => deleteCompetition(cid)}
                             className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
                           >
                             Supprimer

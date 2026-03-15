@@ -57,7 +57,7 @@ export default function Tickets() {
         alert("Format de fichier non supporté. Utilisez PDF, PNG ou JPG.");
         return;
       }
-      // Validate file size (max 5MB)
+
       if (file.size > 5 * 1024 * 1024) {
         alert("Le fichier est trop volumineux (max 5MB).");
         return;
@@ -152,126 +152,99 @@ export default function Tickets() {
           <h2 className="text-3xl font-extrabold tracking-tight">Mes Billets</h2>
           <p className="opacity-80 mt-1">Gérez tous vos accès aux épreuves en un seul endroit.</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={`px-6 py-3 rounded-xl font-bold transition-all transform hover:scale-105 shadow-md flex items-center gap-2 ${showForm
-            ? "bg-white/20 hover:bg-white/30 backdrop-blur-md text-white border border-white/30"
-            : "bg-white text-blue-700 hover:bg-blue-50"
-            }`}
-        >
-          {showForm ? (
-            <><span>×</span> Fermer</>
-          ) : (
-            <><span>+</span> Ajouter un billet</>
-          )}
-        </button>
       </div>
 
-      {/* Formulaire d'ajout de billet */}
-      {showForm && (
-        <div className="bg-white border-0 rounded-2xl p-8 mb-10 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
-            <h3 className="text-xl font-bold text-gray-800">Importer un nouveau billet</h3>
+      {/* Formulaire d'ajout de billet - Toujours visible */}
+      <div className="bg-white border-0 rounded-2xl p-8 mb-10 shadow-xl ring-1 ring-black/5">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
+          <h3 className="text-xl font-bold text-gray-800">Importer un nouveau billet</h3>
+        </div>
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 ml-1">
+              Date de l'événement <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={dateEvenement}
+              onChange={(e) => setDateEvenement(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50"
+              required
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 ml-1">
-                Date de l'événement <span className="text-red-500">*</span>
-              </label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700 ml-1">
+              Événement lié
+            </label>
+            <select
+              value={evenementId}
+              onChange={(e) => setEvenementId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50"
+            >
+              <option value="">Sélectionnez un événement</option>
+              {evenements.map((evt) => (
+                <option key={evt.id} value={evt.id}>
+                  {evt.nom || evt.title || `Événement ${evt.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-sm font-semibold text-gray-700 ml-1">
+              Fichier du billet <span className="text-red-500">*</span>
+            </label>
+            <div className="relative group">
               <input
-                type="date"
-                value={dateEvenement}
-                onChange={(e) => setDateEvenement(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={handleFileChange}
+                className="hidden"
+                id="ticket-file-input"
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 ml-1">
-                Événement lié
-              </label>
-              <select
-                value={evenementId}
-                onChange={(e) => setEvenementId(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50"
+              <label
+                htmlFor="ticket-file-input"
+                className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all group-hover:bg-blue-50"
               >
-                <option value="">Sélectionnez un événement</option>
-                {evenements.map((evt) => (
-                  <option key={evt.id} value={evt.id}>
-                    {evt.nom || evt.title || `Événement ${evt.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-semibold text-gray-700 ml-1">
-                Fichier du billet <span className="text-red-500">*</span>
-              </label>
-              <div className="relative group">
-                <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="ticket-file-input"
-                  required
-                />
-                <label
-                  htmlFor="ticket-file-input"
-                  className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all group-hover:bg-blue-50"
-                >
-                  <div className="bg-blue-100 p-4 rounded-full text-blue-600 mb-3 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  </div>
-                  <span className="font-medium text-gray-700">
-                    {fichierBillet ? fichierBillet.name : "Cliquez pour choisir un fichier (PDF, PNG, JPG)"}
+                <div className="bg-blue-100 p-4 rounded-full text-blue-600 mb-3 group-hover:scale-110 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                </div>
+                <span className="font-medium text-gray-700">
+                  {fichierBillet ? fichierBillet.name : "Cliquez pour choisir un fichier (PDF, PNG, JPG)"}
+                </span>
+                {fichierBillet && (
+                  <span className="text-xs text-gray-500 mt-1">
+                    {(fichierBillet.size / 1024).toFixed(2)} KB
                   </span>
-                  {fichierBillet && (
-                    <span className="text-xs text-gray-500 mt-1">
-                      {(fichierBillet.size / 1024).toFixed(2)} KB
-                    </span>
-                  )}
-                </label>
-              </div>
+                )}
+              </label>
             </div>
+          </div>
 
-            <div className="md:col-span-2 flex justify-end gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
-              >
-                Annuler
-              </button>
-              <button
-                type="submit"
-                disabled={uploading}
-                className="px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:opacity-90 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
-              >
-                {uploading ? "Importation..." : "Importer le billet"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div className="md:col-span-2 flex justify-end gap-3 mt-4">
+            <button
+              type="submit"
+              disabled={uploading}
+              className="px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:opacity-90 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+            >
+              {uploading ? "Importation..." : "Importer le billet"}
+            </button>
+          </div>
+        </form>
+      </div>
 
       {/* Liste des billets */}
       {loading && <p className="text-gray-600">Chargement...</p>}
       {!loading && tickets.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-600 mb-4">Vous n'avez pas encore de billets.</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          >
-            Ajouter votre premier billet
-          </button>
+        <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+          <p className="text-gray-500 font-medium text-lg">Vous n'avez pas encore de billets enregistrés.</p>
+          <p className="text-gray-400 text-sm mt-1">Utilisez le formulaire ci-dessus pour ajouter un nouveau billet.</p>
         </div>
       )}
 
@@ -283,7 +256,9 @@ export default function Tickets() {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                    {t.evenement?.nom || "Événement Olympique"}
+                    {t.evenement?.competitionNom
+                      ? `${t.evenement.competitionNom} - ${t.evenement.nom}`
+                      : (t.evenement?.nom || "Événement Olympique")}
                   </div>
                   <div className="text-xs text-gray-400 font-medium italic truncate max-w-[140px]">
                     {t.nom}

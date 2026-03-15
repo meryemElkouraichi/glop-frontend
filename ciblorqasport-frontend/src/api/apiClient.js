@@ -34,5 +34,6 @@ export async function apiFetch(path, opts = {}) {
     data: requestData,
     headers,
     withCredentials: true, // Always send session cookies/credentials
+    responseType: opts.responseType || "json", // Support blob for downloads
   });
 }
