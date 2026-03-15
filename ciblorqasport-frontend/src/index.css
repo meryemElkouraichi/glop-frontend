@@ -4,5 +4,10 @@
 
 /* Custom global styles */
 body {
-  @apply bg-gray-100 text-gray-800;
+  font-family: 'Inter', sans-serif;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
 }
