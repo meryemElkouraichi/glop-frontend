@@ -15,7 +15,9 @@ export default function VolunteerRequestForm({ onSuccess }) {
     const fetchEvents = async () => {
       try {
         const res = await apiFetch("/events");
-        setEvents(res.data || []);
+        // Filtrer pour ne garder que les épreuves (pas les compétitions)
+        const epreuvesOnly = (res.data || []).filter(event => event.typeObjet === "EPREUVE");
+        setEvents(epreuvesOnly);
       } catch (err) {
         console.error("Impossible de charger les événements", err);
       }
@@ -38,8 +40,8 @@ export default function VolunteerRequestForm({ onSuccess }) {
       setSuccess("Votre demande de volontariat a été envoyée avec succès.");
       setEvenementId("");
       onSuccess?.();
-    } catch {
-      setError("Impossible d’envoyer la demande.");
+    } catch (err) {
+      setError(err.response?.data?.message || err.response?.data || "Impossible d’envoyer la demande.");
     } finally {
       setLoading(false);
     }

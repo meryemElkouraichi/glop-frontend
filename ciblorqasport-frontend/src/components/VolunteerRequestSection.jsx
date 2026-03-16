@@ -44,6 +44,9 @@ export default function VolunteerRequestSection() {
 
   useEffect(() => {
     fetchDemande();
+    // Recharger les données toutes les 30 secondes pour voir les mises à jour
+    const interval = setInterval(fetchDemande, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   return (
@@ -73,15 +76,15 @@ export default function VolunteerRequestSection() {
                   Demandé le: {new Date(req.dateDemande).toLocaleString()}
                 </div>
                 <div className={`text-sm font-medium mt-1 ${
-                  req.status === 'ACCEPTEE' ? 'text-green-600' :
-                  req.status === 'REFUSEE' ? 'text-red-600' :
+                  req.status === 'acceptee' ? 'text-green-600' :
+                  req.status === 'refusee' ? 'text-red-600' :
                   'text-blue-600'
                 }`}>
-                  Statut: {req.status === 'ACCEPTEE' ? 'Acceptée' :
-                           req.status === 'REFUSEE' ? 'Refusée' :
+                  Statut: {req.status === 'acceptee' ? 'Acceptée' :
+                           req.status === 'refusee' ? 'Refusée' :
                            'En attente'}
                 </div>
-                {req.status === 'REFUSEE' && req.motifRefus && (
+                {req.status === 'refusee' && req.motifRefus && (
                   <div className="text-sm text-red-600 mt-1">
                     Motif du refus: {req.motifRefus}
                   </div>
