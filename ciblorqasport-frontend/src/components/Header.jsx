@@ -36,6 +36,7 @@ export default function Header() {
             <>
               <button onClick={() => navigate('/administrateur#competition')}>Compétitions</button>
               <button onClick={() => navigate('/administrateur#epreuve')}>Épreuves</button>
+              <button onClick={() => navigate('/administrateur#volontaire')}>Demandes Volontaires</button>
               <button onClick={() => navigate('/administrateur#alerte')}>Alertes</button>
               <button onClick={() => navigate('/administrateur#ceremonie')}>Cérémonies</button>
               <button onClick={() => navigate('/administrateur#analytics')}>Analyses & Statistiques</button>

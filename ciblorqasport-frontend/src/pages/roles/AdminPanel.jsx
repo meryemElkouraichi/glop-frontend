@@ -137,6 +137,16 @@ export default function AdminPanel() {
   const [partSuccess, setPartSuccess] = useState("");
   const [expandedTeamId, setExpandedTeamId] = useState(null);
 
+  // State for volunteer requests
+  const [volunteerRequests, setVolunteerRequests] = useState([]);
+  const [volLoading, setVolLoading] = useState(false);
+  const [volError, setVolError] = useState("");
+  const [volSuccess, setVolSuccess] = useState("");
+
+  // State for planning import
+  const [planningErrors, setPlanningErrors] = useState([]);
+  const [planningSuccess, setPlanningSuccess] = useState("");
+
   const [epDay] = useState([
     { id: 1, name: "50m Libre Hommes (Natation)", status: "en_cours", sport: "Natation" },
     { id: 2, name: "100m Papillon Femmes (Natation)", status: "fini", sport: "Natation" },
@@ -224,6 +234,20 @@ export default function AdminPanel() {
     });
   };
 
+  const loadVolunteerRequests = () => {
+    setVolLoading(true);
+    apiFetch("/volontaire-requests/all").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setVolunteerRequests(r.data);
+      }
+    }).catch(err => {
+      console.error("Error loading volunteer requests:", err);
+      setVolError("Erreur lors du chargement des demandes.");
+    }).finally(() => {
+      setVolLoading(false);
+    });
+  };
+
   useEffect(() => {
     loadIncidents();
     loadCompetitions();
@@ -249,6 +273,7 @@ export default function AdminPanel() {
   useEffect(() => {
     if (tab === "competition") loadCompetitions();
     if (tab === "epreuve") loadEpreuves();
+    if (tab === "volontaire") loadVolunteerRequests();
     if (tab === "ceremonie") loadLieux(); // Cérémonie a besoin des lieux
     if (tab === "alerte") loadIncidents();
   }, [tab]);
@@ -569,6 +594,12 @@ export default function AdminPanel() {
                 Épreuves
               </button>
               <button
+                className={`w-full text-left p-2 rounded ${tab === "volontaire" ? "bg-blue-50 font-semibold" : "hover:bg-gray-100"}`}
+                onClick={() => setTab("volontaire")}
+              >
+                Demandes Volontaires
+              </button>
+              <button
                 className={`w-full text-left p-2 rounded ${tab === "ceremonie" ? "bg-blue-50 font-semibold" : "hover:bg-gray-100"}`}
                 onClick={() => setTab("ceremonie")}
               >
@@ -870,8 +901,121 @@ export default function AdminPanel() {
                 </div>
               </div>
             </div >
-          )
-          }
+          )}
+
+          {tab === "volontaire" && (
+            <div className="bg-white p-4 rounded shadow">
+              <h4 className="text-lg font-medium mb-3">Gestion des demandes de volontariat</h4>
+              {volLoading ? (
+                <p>Chargement...</p>
+              ) : volError ? (
+                <p className="text-red-600">{volError}</p>
+              ) : volunteerRequests.length === 0 ? (
+                <p className="text-gray-500 italic">Aucune demande en attente.</p>
+              ) : (
+                <div className="space-y-3">
+                  {volunteerRequests.map((req) => (
+                    <div key={req.id} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="font-bold text-lg">{req.userPrenom} {req.userNom}</div>
+                        <div className="text-sm text-gray-600">
+                          Email: {req.userEmail} • Téléphone: {req.userTelephone || "Non spécifié"}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Événement: {req.evenement?.nom} ({req.evenement?.type})
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Demandé le: {new Date(req.dateDemande).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Accepter cette demande de volontariat ?")) {
+                              apiFetch(`/volontaire-requests/${req.id}/accept?adminId=${user.id}`, { method: "POST" })
+                                .then(() => {
+                                  setVolSuccess("Demande acceptée.");
+                                  loadVolunteerRequests();
+                                })
+                                .catch(err => setVolError("Erreur lors de l'acceptation."));
+                            }
+                          }}
+                          className="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Accepter
+                        </button>
+                        <button
+                          onClick={() => {
+                            const motif = prompt("Motif du refus (optionnel):");
+                            apiFetch(`/volontaire-requests/${req.id}/refuse?adminId=${user.id}&motif=${encodeURIComponent(motif || "")}`, { method: "POST" })
+                              .then(() => {
+                                setVolSuccess("Demande refusée.");
+                                loadVolunteerRequests();
+                              })
+                              .catch(err => setVolError("Erreur lors du refus."));
+                          }}
+                          className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Refuser
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {volSuccess && <div className="text-green-600 mt-4">{volSuccess}</div>}
+            </div>
+          )}
+
+          {/* Section Import Planning */}
+          {tab === "volontaire" && (
+            <div className="bg-white p-4 rounded shadow mt-6">
+              <h4 className="text-lg font-medium mb-3">Importer Planning Volontaires (JSON)</h4>
+              <form onSubmit={(ev) => {
+                ev.preventDefault();
+                setPlanningErrors([]);
+                setPlanningSuccess("");
+                const jsonText = document.getElementById('planningJson').value;
+                if (!jsonText.trim()) {
+                  setPlanningErrors(["Le JSON est requis."]);
+                  return;
+                }
+                try {
+                  const planningData = JSON.parse(jsonText);
+                  if (!Array.isArray(planningData)) {
+                    setPlanningErrors(["Le JSON doit être un tableau d'objets."]);
+                    return;
+                  }
+                  apiFetch("/planning-volontaire/import", {
+                    method: "POST",
+                    data: planningData
+                  }).then(() => {
+                    setPlanningSuccess("Planning importé avec succès !");
+                    document.getElementById('planningJson').value = "";
+                  }).catch(err => {
+                    const errorMsg = err.response?.data?.message || err.response?.data || err.message || "Erreur inconnue";
+                    setPlanningErrors(["Erreur lors de l'import: " + errorMsg]);
+                  });
+                } catch (e) {
+                  setPlanningErrors(["JSON invalide: " + e.message]);
+                }
+              }} className="space-y-3">
+                <div>
+                  <label className="block text-sm">JSON des plannings</label>
+                  <textarea
+                    id="planningJson"
+                    className="mt-1 block w-full border rounded p-2 h-64 font-mono text-sm"
+                    placeholder='Exemple: [{"userEmail": "volontaire@example.com", "evenementId": "123e4567-e89b-12d3-a456-426614174000", "date": "2026-03-16", "heureDebut": "09:00", "heureFin": "12:00", "role": "Accueil"}]'
+                  />
+                </div>
+                {planningErrors.length > 0 && <div className="text-red-600">{planningErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
+                {planningSuccess && <div className="text-green-600">{planningSuccess}</div>}
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Importer</button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {
             tab === "ceremonie" && (
@@ -1001,7 +1145,6 @@ export default function AdminPanel() {
               </div>
             )
           }
-
           {
             tab === "analytics" && (
               <div className="bg-white p-4 rounded shadow">
