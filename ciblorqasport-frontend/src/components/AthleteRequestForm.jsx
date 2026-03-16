@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { apiFetch } from "../api/apiClient";
 
-export default function AthleteRequestForm({ onSuccess }) {
+export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
   const { user } = useAuth();
   const [nation, setNation] = useState("");
   const [countries, setCountries] = useState([]);
@@ -105,11 +105,20 @@ export default function AthleteRequestForm({ onSuccess }) {
           disabled={loading || sports.length === 0}
         >
           <option value="">-- Choisissez une discipline --</option>
-          {sports.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.discipline} ({s.categorie}, {s.genre})
-            </option>
-          ))}
+          {sports
+            .filter((s) => {
+              // On garde le sport seulement si l'utilisateur n'a pas déjà une demande
+              // en cours ou acceptée pour cette discipline précise.
+              const alreadyRequested = allRequests.some(
+                (req) => req.sport?.id === s.id && req.status !== "refusee"
+              );
+              return !alreadyRequested;
+            })
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.discipline} ({s.categorie}, {s.genre})
+              </option>
+            ))}
         </select>
       </div>
 

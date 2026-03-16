@@ -99,7 +99,8 @@ export default function Tickets() {
       fetchTickets();
     } catch (err) {
       console.error("Erreur lors de l'import du billet:", err);
-      alert("Erreur lors de l'import du billet. Veuillez réessayer.");
+      const msg = err.response?.data?.message || err.response?.data || "Erreur lors de l'import du billet. Veuillez réessayer.";
+      alert(msg);
     } finally {
       setUploading(false);
     }

@@ -104,9 +104,12 @@ export default function ResultatsEpreuve() {
         // Filter out empty inputs
         const payload = Object.keys(inputs)
             .filter(athleteId => inputs[athleteId].value && inputs[athleteId].value.trim() !== "")
-            .map(athleteId => {
-                const val = inputs[athleteId].value;
-                const result = { athleteId: athleteId };
+            .map(pId => {
+                const val = inputs[pId].value;
+                const participant = participants.find(p => p.id === pId);
+                const isTeam = participant?.type === "EQUIPE";
+
+                const result = isTeam ? { equipeId: pId } : { athleteId: pId };
 
                 // Determine input type based on Epreuve discipline (simplified logic)
                 // Adjust these keywords based on your actual database data
@@ -210,25 +213,34 @@ export default function ResultatsEpreuve() {
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                                {participants.map(p => (
-                                    <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-                                        <div className="flex-1">
-                                            <div className="font-semibold text-gray-800">{p.nom} {p.prenom}</div>
-                                            <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
+                                {(() => {
+                                    const hasTeams = participants.some(p => p.type === 'EQUIPE');
+                                    const displayList = hasTeams
+                                        ? participants.filter(p => p.type === 'EQUIPE')
+                                        : participants;
+
+                                    return displayList.map(p => (
+                                        <div key={p.type + p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-gray-800">
+                                                    {p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`}
+                                                </div>
+                                                <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
+                                            </div>
+                                            <div className="w-full sm:w-1/3">
+                                                <input
+                                                    type={inputType}
+                                                    step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
+                                                    placeholder={inputLabel}
+                                                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
+                                                    value={inputs[p.id]?.value || ""}
+                                                    onChange={(e) => handleInputChange(p.id, e.target.value)}
+                                                    disabled={isValide}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="w-full sm:w-1/3">
-                                            <input
-                                                type={inputType}
-                                                step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
-                                                placeholder={inputLabel}
-                                                className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
-                                                value={inputs[p.id]?.value || ""}
-                                                onChange={(e) => handleInputChange(p.id, e.target.value)}
-                                                disabled={isValide}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
+                                    ));
+                                })()}
                             </div>
 
                             {!isValide && participants.length > 0 && (
@@ -269,7 +281,9 @@ export default function ResultatsEpreuve() {
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Rang</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Athlète</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                {participants.some(p => p.type === 'EQUIPE') ? "Équipe" : "Athlète"}
+                                            </th>
                                             <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Perf.</th>
                                         </tr>
                                     </thead>
@@ -288,8 +302,17 @@ export default function ResultatsEpreuve() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
-                                                    <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
+                                                    {res.athlete ? (
+                                                        <>
+                                                            <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
+                                                            <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="text-sm font-medium text-gray-900">{res.equipe?.nom}</div>
+                                                            <div className="text-xs text-gray-500">{res.equipe?.nation}</div>
+                                                        </>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-medium text-gray-900">
                                                     {res.tempsSecondes != null && formatSecondsToTime(res.tempsSecondes)}

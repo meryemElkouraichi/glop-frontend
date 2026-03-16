@@ -135,6 +135,7 @@ export default function AdminPanel() {
   const [partLoading, setPartLoading] = useState(false);
   const [partError, setPartError] = useState("");
   const [partSuccess, setPartSuccess] = useState("");
+  const [expandedTeamId, setExpandedTeamId] = useState(null);
 
   const [epDay] = useState([
     { id: 1, name: "50m Libre Hommes (Natation)", status: "en_cours", sport: "Natation" },
@@ -483,16 +484,16 @@ export default function AdminPanel() {
     setSelectedAthleteId("");
 
     try {
-      // 1. Charger les athlètes déjà inscrits
-      const resInscrits = await apiFetch(`/epreuves/${ep.id}/athletes`);
+      // 1. Charger les inscrits (Athlètes ou Équipes)
+      const resInscrits = await apiFetch(`/epreuves/${ep.id}/participants`);
       setCurrentParticipants(resInscrits.data || []);
 
-      // 2. Charger les athlètes éligibles (même discipline et genre)
-      const resEligibles = await apiFetch(`/athletes/eligible?discipline=${encodeURIComponent(ep.discipline)}&genre=${encodeURIComponent(ep.genre)}`);
+      // 2. Charger les éligibles (Géré par le backend selon si l'épreuve est par équipe ou non)
+      const resEligibles = await apiFetch(`/epreuves/${ep.id}/participants/eligible`);
       setEligibleAthletes(resEligibles.data || []);
     } catch (err) {
       console.error(err);
-      setPartError("Erreur lors du chargement des athlètes.");
+      setPartError("Erreur lors du chargement des participants.");
     } finally {
       setPartLoading(false);
     }
@@ -505,15 +506,45 @@ export default function AdminPanel() {
     setPartSuccess("");
 
     try {
-      await apiFetch(`/epreuves/${currentEpForParticipants.id}/athletes/${selectedAthleteId}`, { method: "POST" });
-      setPartSuccess("Athlète ajouté !");
-      // Recharger la liste des participants
-      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/athletes`);
+      // On détecte si on ajoute une équipe ou un athlète basé sur les données reçues
+      const isTeam = eligibleAthletes.some(a => a.id === selectedAthleteId && a.type === "EQUIPE");
+      const payload = isTeam ? { equipeId: selectedAthleteId } : { athleteId: selectedAthleteId };
+
+      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`, {
+        method: "POST",
+        data: payload
+      });
+
+      setPartSuccess(isTeam ? "Équipe ajoutée !" : "Athlète ajouté !");
+
+      // Recharger la liste
+      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`);
       setCurrentParticipants(resInscrits.data || []);
       setSelectedAthleteId("");
     } catch (err) {
       console.error(err);
-      setPartError("L'athlète est probablement déjà inscrit ou erreur serveur.");
+      setPartError(err.response?.data?.message || "Erreur lors de l'ajout.");
+    } finally {
+      setPartLoading(false);
+    }
+  };
+
+  const handleRemoveParticipant = async (params) => {
+    if (!window.confirm("Retirer ce participant de l'épreuve ?")) return;
+    setPartLoading(true);
+    setPartError("");
+    try {
+      const searchParams = new URLSearchParams(params).toString();
+      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants?${searchParams}`, {
+        method: "DELETE"
+      });
+      setPartSuccess("Participant retiré !");
+      // Recharger la liste
+      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`);
+      setCurrentParticipants(resInscrits.data || []);
+    } catch (err) {
+      console.error("Erreur lors du retrait:", err);
+      setPartError(err.response?.data?.message || err.message || "Erreur lors du retrait.");
     } finally {
       setPartLoading(false);
     }
@@ -1153,21 +1184,85 @@ export default function AdminPanel() {
 
                   {/* Liste actuelle */}
                   <section>
-                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits ({currentParticipants.length})</h4>
+                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits</h4>
                     {currentParticipants.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                         <p className="text-gray-500">Aucun participant pour le moment.</p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {currentParticipants.map(p => (
-                          <div key={p.id} className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm">
-                            <span className="font-medium text-gray-800">{p.prenom} {p.nom}</span>
-                            {/* Optionnel: bouton supprimer participation */}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    ) : (() => {
+                      const hasTeams = currentParticipants.some(p => p.type === 'EQUIPE');
+                      const displayList = hasTeams
+                        ? currentParticipants.filter(p => p.type === 'EQUIPE')
+                        : currentParticipants;
+
+                      return (
+                        <div className="space-y-3">
+                          {displayList.map(p => (
+                            <div key={p.id + p.type} className="border rounded-lg overflow-hidden shadow-sm">
+                              <div
+                                className={`flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors cursor-pointer ${p.type === 'EQUIPE' ? 'font-bold text-blue-800' : 'font-medium text-gray-800'}`}
+                                onClick={() => {
+                                  if (p.type === 'EQUIPE') {
+                                    setExpandedTeamId(expandedTeamId === p.id ? null : p.id);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {p.type === 'EQUIPE' ? '👥' : '👤'}
+                                  <span>{p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`} ({p.nation})</span>
+                                </div>
+                                {p.type === 'EQUIPE' && (
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                    {expandedTeamId === p.id ? "Masquer membres" : "Voir membres"}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveParticipant(p.type === 'EQUIPE' ? { equipeId: p.id } : { athleteId: p.id });
+                                  }}
+                                  className="text-red-500 hover:text-red-700 p-1 font-bold text-lg"
+                                  title="Retirer de l'épreuve"
+                                >
+                                  &times;
+                                </button>
+                              </div>
+
+                              {p.type === 'EQUIPE' && expandedTeamId === p.id && (
+                                <div className="bg-gray-50 border-t p-3 text-sm space-y-2">
+                                  <p className="text-xs text-gray-500 font-bold uppercase mb-2">Membres inscrits pour cette épreuve :</p>
+                                  {(() => {
+                                    // On filtre les membres de l'équipe qui sont AUSSI dans currentParticipants comme ATHLETE
+                                    const registeredMembers = p.membres.filter(m =>
+                                      currentParticipants.some(cp => cp.type === 'ATHLETE' && cp.id === m.id)
+                                    );
+
+                                    return registeredMembers.length > 0 ? (
+                                      <ul className="space-y-1">
+                                        {registeredMembers.map(m => (
+                                          <li key={m.id} className="bg-white p-2 rounded border border-gray-100 flex justify-between items-center group">
+                                            <span>{m.prenom} {m.nom}</span>
+                                            <button
+                                              onClick={() => handleRemoveParticipant({ athleteId: m.id })}
+                                              className="text-amber-600 hover:text-amber-800 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                              title="Retirer cet athlète (blessure, etc.)"
+                                            >
+                                              Retirer (blessé ?)
+                                            </button>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-gray-400 italic">Aucun membre n'est actuellement inscrit comme participant individuel.</p>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </section>
                 </div>
 
