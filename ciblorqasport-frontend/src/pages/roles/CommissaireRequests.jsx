@@ -10,17 +10,17 @@ export default function CommissaireRequests({ onlyPending = true }) {
   const [loading, setLoading] = useState(false);
 
   const fetchRequests = async () => {
+    if (!user?.id) return;
     setLoading(true);
     try {
-      const res = await apiFetch("/athlete-requests/all", {
-        credentials: "include",
-      });
+      // N'affiche que les demandes pour les disciplines gérées par ce commissaire
+      const res = await apiFetch(
+        `/athlete-requests/for-commissaire?commissaireId=${user.id}`,
+        { credentials: "include" }
+      );
 
       const data = res.data || [];
-
-      // normalize status string and keep raw list in state; UI will compute views/filters
-      const normalized = data.map((d) => ({ ...d }));
-      setRequests(normalized);
+      setRequests(data.map((d) => ({ ...d })));
     } catch (e) {
       console.error(e);
     } finally {
@@ -30,7 +30,7 @@ export default function CommissaireRequests({ onlyPending = true }) {
 
   useEffect(() => {
     fetchRequests();
-  }, [onlyPending]);
+  }, [onlyPending, user?.id]);
 
   const accept = async (id) => {
     if (!user?.id) return alert("Utilisateur non authentifié");
@@ -42,8 +42,8 @@ export default function CommissaireRequests({ onlyPending = true }) {
       );
       fetchRequests();
     } catch (e) {
-      console.error(e);
-      alert("Erreur lors de l'acceptation");
+      const msg = e?.response?.data?.message || "Erreur lors de l'acceptation";
+      alert(msg);
     }
   };
 
@@ -61,8 +61,8 @@ export default function CommissaireRequests({ onlyPending = true }) {
       );
       fetchRequests();
     } catch (e) {
-      console.error(e);
-      alert("Erreur lors du refus");
+      const msg = e?.response?.data?.message || "Erreur lors du refus";
+      alert(msg);
     }
   };
 
