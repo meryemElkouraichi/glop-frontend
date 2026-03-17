@@ -133,9 +133,7 @@ export default function Register() {
           </option>
           <option value={ROLES.SPECTATEUR}>{ROLES.SPECTATEUR}</option>
           <option value={ROLES.ATHLETE}>{ROLES.ATHLETE}</option>
-          <option value={ROLES.COMMISSAIRE}>{ROLES.COMMISSAIRE}</option>
           <option value={ROLES.VOLONTAIRE}>{ROLES.VOLONTAIRE}</option>
-          <option value={ROLES.ADMIN}>{ROLES.ADMIN}</option>
         </select>
 
         <label className="flex items-center space-x-2 text-sm">
