@@ -3,12 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ROLES } from "../constants/roles";
 
-const getMainDashboard = (roles) => {
-  if (roles.includes(ROLES.ADMIN)) return "/administrateur";
-  if (roles.includes(ROLES.COMMISSAIRE)) return "/commissaire";
-  if (roles.includes(ROLES.ATHLETE)) return "/athlete";
-  if (roles.includes(ROLES.VOLONTAIRE)) return "/volontaire";
-  return "/spectateur";
+const getMainDashboard = () => {
+  return "/home";
 };
 
 export default function Login() {

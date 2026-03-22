@@ -27,13 +27,8 @@ import ResultatsEpreuve from "../pages/roles/ResultatsEpreuve";
 
 import { ROLES } from "../constants/roles";
 
-const getMainDashboard = (roles) => {
-  if (!roles) return "/home";
-  if (roles.includes(ROLES.ADMIN)) return "/administrateur";
-  if (roles.includes(ROLES.COMMISSAIRE)) return "/commissaire";
-  if (roles.includes(ROLES.ATHLETE)) return "/athlete";
-  if (roles.includes(ROLES.VOLONTAIRE)) return "/volontaire";
-  return "/spectateur";
+const getMainDashboard = () => {
+  return "/home";
 };
 
 export default function MainLayout() {
@@ -56,7 +51,7 @@ export default function MainLayout() {
           {/* Route par défaut */}
           <Route
             path="/"
-            element={user ? <Navigate to={getMainDashboard(user.roles)} replace /> : <Login />}
+            element={user ? <Navigate to="/home" replace /> : <Login />}
           />
 
           {/* Pages publiques */}
