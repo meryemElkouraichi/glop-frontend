@@ -52,6 +52,7 @@ export default function AdminPanel() {
   const [cerDescription, setCerDescription] = useState("");
   const [cerErrors, setCerErrors] = useState([]);
   const [cerSuccess, setCerSuccess] = useState("");
+  const [editingCerId, setEditingCerId] = useState(null);
 
   const submitCeremonie = (ev) => {
     ev.preventDefault();
@@ -125,6 +126,9 @@ export default function AdminPanel() {
 
   // List of epreuves for display
   const [epreuvesList, setEpreuvesList] = useState([]);
+
+  // List of ceremonies for display
+  const [ceremoniesList, setCeremoniesList] = useState([]);
 
   // State for participants management
   const [showParticipantModal, setShowParticipantModal] = useState(false);
@@ -234,6 +238,46 @@ export default function AdminPanel() {
     });
   };
 
+  const loadCeremonies = () => {
+    apiFetch("/events").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        // Filtern on typeObjet discriminator
+        const filtered = r.data.filter(ev => ev.typeObjet === "CEREMONIE");
+        setCeremoniesList(filtered);
+      }
+    }).catch(err => {
+      console.error("Error loading ceremonies:", err);
+    });
+  };
+
+  const deleteCeremonie = async (id) => {
+    if (!window.confirm("Supprimer cette cérémonie ?")) return;
+    try {
+      await apiFetch(`/events/${id}`, { method: "DELETE" });
+      loadCeremonies();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression de la cérémonie.");
+    }
+  };
+
+  const editCeremonie = (c) => {
+    setEditingCerId(c.id);
+    setCerName(c.nom || "");
+    setCerCompetition(c.parent?.id || "");
+    setCerDate(c.dateDebut || "");
+    setCerStartTime(c.heureDebut || "");
+    setCerEndTime(c.heureFin || "");
+    setCerLocation(c.lieu?.id || "");
+    const mapTypeBack = (t) => {
+      if (!t) return "";
+      if (t === "REMISE_MEDAILLES") return "remise_prix";
+      return t.toLowerCase();
+    };
+    setCerType(mapTypeBack(c.typeCeremonie || ""));
+    setTab("ceremonie");
+  };
+
   const loadVolunteerRequests = () => {
     setVolLoading(true);
     apiFetch("/volontaire-requests/all").then((r) => {
@@ -257,6 +301,7 @@ export default function AdminPanel() {
     loadGenres();
     loadLieux();
     loadEpreuves();
+    loadCeremonies();
   }, []);
 
   const resolveIncident = async (incidentId) => {
@@ -274,7 +319,10 @@ export default function AdminPanel() {
     if (tab === "competition") loadCompetitions();
     if (tab === "epreuve") loadEpreuves();
     if (tab === "volontaire") loadVolunteerRequests();
-    if (tab === "ceremonie") loadLieux(); // Cérémonie a besoin des lieux
+    if (tab === "ceremonie") {
+      loadLieux();
+      loadCeremonies();
+    }
     if (tab === "alerte") loadIncidents();
   }, [tab]);
 
@@ -1052,25 +1100,39 @@ export default function AdminPanel() {
                     dateFin: cerDate,
                     heureDebut: cerStartTime,
                     heureFin: cerEndTime,
-                    paysOrganisateur: cerLocation,
+                    lieu: cerLocation ? { id: cerLocation } : null,
+                    parent: cerCompetition ? { id: cerCompetition, typeObjet: "COMPETITION" } : null,
                     status: "Planifié",
                     typeCeremonie: mapCerType(cerType)
                   };
 
                   try {
-                    const url = cerCompetition
-                      ? `/competitions/${cerCompetition}/children`
-                      : "/events"; // Fallback to generic events if no competition
+                    if (editingCerId) {
+                      await apiFetch(`/events/${editingCerId}`, {
+                        method: "PUT",
+                        data: ceremonieData
+                      });
+                      setCerSuccess("Cérémonie mise à jour !");
+                    } else {
+                      const url = cerCompetition
+                        ? `/competitions/${cerCompetition}/children`
+                        : "/events"; // Fallback to generic events if no competition
 
-                    await apiFetch(url, {
-                      method: "POST",
-                      data: ceremonieData
-                    });
-                    setCerSuccess("Cérémonie créée avec succès !");
-                    setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription(""); setCerCompetition("");
+                      await apiFetch(url, {
+                        method: "POST",
+                        data: ceremonieData
+                      });
+                      setCerSuccess("Cérémonie créée avec succès !");
+                    }
+                    setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerCompetition("");
+                    setEditingCerId(null);
+                    loadCeremonies();
                   } catch (error) {
-                    console.error("Erreur création cérémonie:", error);
-                    setCerErrors(["Erreur lors de la création de la cérémonie sur le serveur."]);
+                    console.error("Erreur création/modification cérémonie:", error);
+                    const status = error.response ? error.response.status : "Inconnu";
+                    const errorMsg = error.response?.data?.message || error.response?.data || "Erreur serveur.";
+                    alert(`Erreur technique (${status})\nMessage: ${errorMsg}`);
+                    setCerErrors(["Erreur lors de l'enregistrement de la cérémonie sur le serveur."]);
                   }
                 }} className="space-y-3">
                   <div>
@@ -1114,7 +1176,16 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <label className="block text-sm">Lieu</label>
-                      <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                      <select
+                        value={cerLocation}
+                        onChange={(e) => setCerLocation(e.target.value)}
+                        className="mt-1 block w-full border rounded p-2"
+                      >
+                        <option value="">-- Choisir un lieu --</option>
+                        {lieuList.map((l) => (
+                          <option key={l.id} value={l.id}>{l.nom}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div>
@@ -1126,22 +1197,65 @@ export default function AdminPanel() {
                       <option value="remise_prix">Cérémonie de remise de prix</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm">Lieu</label>
-                    <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm">Description (optionnel)</label>
-                    <textarea value={cerDescription} onChange={(e) => setCerDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
-                  </div>
+                  {/* Lieu input et Description retirés à la demande de l'utilisateur */}
 
                   {cerErrors.length > 0 && <div className="text-red-600">{cerErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
                   {cerSuccess && <div className="text-green-600">{cerSuccess}</div>}
 
                   <div className="flex gap-2">
-                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+                      {editingCerId ? "Mettre à jour" : "Créer"}
+                    </button>
+                    {editingCerId && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingCerId(null); setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerCompetition(""); setCerSuccess(""); setCerErrors([]); }}
+                        className="bg-gray-400 text-white px-4 py-2 rounded"
+                      >
+                        Annuler
+                      </button>
+                    )}
                   </div>
                 </form>
+
+                <div className="mt-8 border-t pt-4">
+                  <h5 className="font-semibold mb-4 text-gray-700">Liste des cérémonies</h5>
+                  <div className="space-y-3">
+                    {ceremoniesList.length === 0 && <p className="text-gray-500 italic">Aucune cérémonie trouvée.</p>}
+                    {ceremoniesList.map((c) => {
+                      const cid = c.id;
+                      const cname = c.nom || "Cérémonie sans nom";
+                      return (
+                        <div key={cid} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="font-bold text-lg">{cname}</div>
+                            <div className="text-sm text-gray-600">
+                              {/* TypeCeremonie (OUVERTURE/CLOTURE...) retiré à la demande de l'utilisateur */}
+                              {c.dateDebut}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {c.lieu?.nom || "Lieu non spécifié"} • {c.heureDebut} - {c.heureFin}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => editCeremonie(c)}
+                              className="text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded text-sm transition-colors"
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              onClick={() => deleteCeremonie(cid)}
+                              className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )
           }
