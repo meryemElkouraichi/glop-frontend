@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
+import { useAuth } from "../context/AuthContext";
 
 export default function Events() {
+  const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [filterType, setFilterType] = useState("all");
+
+
 
   useEffect(() => {
     apiFetch("/events").then((r) => setEvents(r.data || []));
@@ -36,9 +40,17 @@ export default function Events() {
                 </div>
                 <div className="text-xs text-gray-400 mt-1 uppercase tracking-wide">{e.typeObjet}</div>
               </div>
-              <Link to={`/events/${e.id}`} className="text-blue-600 text-sm border border-blue-600 px-3 py-1 rounded hover:bg-blue-50">
-                Voir détails
-              </Link>
+              <div className="flex flex-col gap-2">
+                <Link to={`/events/${e.id}`} className="text-blue-600 text-sm border border-blue-600 px-3 py-1 rounded hover:bg-blue-50 text-center">
+                  Voir détails
+                </Link>
+                <button
+                  onClick={() => alert(`Envoi de notification pour : ${e.nom}`)}
+                  className="text-orange-600 text-sm border border-orange-600 px-3 py-1 rounded hover:bg-orange-50 whitespace-nowrap"
+                >
+                  🔔s'abonner aux notifications
+                </button>
+              </div>
             </div>
           </li>
         ))}
