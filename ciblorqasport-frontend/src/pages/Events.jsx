@@ -2,17 +2,50 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
+import { ROLES } from "../constants/roles";
 
 export default function Events() {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [filterType, setFilterType] = useState("all");
+  const [subscriptions, setSubscriptions] = useState({});
 
-
+  const fetchSubscriptions = async (evts) => {
+    if (!user) return;
+    const statuses = {};
+    for (const e of evts) {
+      try {
+        const res = await apiFetch(`/subscriptions/${e.id}/check`);
+        statuses[e.id] = res.data;
+      } catch (err) {
+        statuses[e.id] = false;
+      }
+    }
+    setSubscriptions(statuses);
+  };
 
   useEffect(() => {
-    apiFetch("/events").then((r) => setEvents(r.data || []));
-  }, []);
+    apiFetch("/events").then((r) => {
+      const data = r.data || [];
+      setEvents(data);
+      fetchSubscriptions(data);
+    });
+  }, [user]);
+
+  const toggleSubscription = async (eventId) => {
+    if (!user) return alert("Veuillez vous connecter pour vous abonner");
+    const isSubscribed = subscriptions[eventId];
+    try {
+      if (isSubscribed) {
+        await apiFetch(`/subscriptions/${eventId}`, { method: "DELETE" });
+      } else {
+        await apiFetch(`/subscriptions/${eventId}`, { method: "POST" });
+      }
+      setSubscriptions(prev => ({ ...prev, [eventId]: !isSubscribed }));
+    } catch (err) {
+      alert("Erreur lors de l'abonnement");
+    }
+  };
 
   const filtered = events.filter((e) =>
     filterType === "all" ? true : (e.typeObjet?.toLowerCase() || "") === filterType
@@ -44,11 +77,29 @@ export default function Events() {
                 <Link to={`/events/${e.id}`} className="text-blue-600 text-sm border border-blue-600 px-3 py-1 rounded hover:bg-blue-50 text-center">
                   Voir détails
                 </Link>
+                {(() => {
+                  const userRoles = (user?.roles || []).map(r => typeof r === 'string' ? r : r.nom || r.name);
+                  const canManage = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.COMMISSAIRE) ||
+                    userRoles.includes("Administrateur") || userRoles.includes("Commissaire");
+                  const isEpreuve = e.typeObjet?.toUpperCase() === 'EPREUVE' || e.type?.toUpperCase() === 'EPREUVE';
+
+                  if (canManage && isEpreuve) {
+                    return (
+                      <Link to={`/events/${e.id}/resultats`} className="text-green-600 text-sm border border-green-600 px-3 py-1 rounded hover:bg-green-50 text-center">
+                        Résultats
+                      </Link>
+                    );
+                  }
+                  return null;
+                })()}
                 <button
-                  onClick={() => alert(`Envoi de notification pour : ${e.nom}`)}
-                  className="text-orange-600 text-sm border border-orange-600 px-3 py-1 rounded hover:bg-orange-50 whitespace-nowrap"
+                  onClick={() => toggleSubscription(e.id)}
+                  className={`text-sm border px-3 py-1 rounded whitespace-nowrap transition ${subscriptions[e.id]
+                    ? 'border-gray-400 text-gray-600 hover:bg-gray-50'
+                    : 'border-orange-600 text-orange-600 hover:bg-orange-50'
+                    }`}
                 >
-                  🔔s'abonner aux notifications
+                  {subscriptions[e.id] ? "🔕 Se désabonner" : "🔔 S'abonner aux notifications"}
                 </button>
               </div>
             </div>
