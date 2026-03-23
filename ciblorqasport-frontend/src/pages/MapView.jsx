@@ -66,10 +66,26 @@ export default function MapView() {
         const canSeeTracking =
             user &&
             user.roles &&
-            user.roles.some((r) => r.name === "ROLE_ADMIN" || r.name === "ROLE_COMMISSAIRE");
+            (user.roles.includes("Administrateur") || user.roles.includes("Commissaire"));
 
         if (canSeeTracking) {
             console.log("Initialisation de la connexion STOMP pour le tracking...");
+
+            // 1. Fetch initial positions
+            const fetchInitialAthletes = async () => {
+                try {
+                    const res = await apiFetch("/tracking/athletes");
+                    const initialMap = {};
+                    res.data.forEach(a => {
+                        initialMap[a.athleteId] = a;
+                    });
+                    setAthletes(initialMap);
+                } catch (e) {
+                    console.error("Initial athletes fetch failed", e);
+                }
+            };
+            fetchInitialAthletes();
+
             const socket = new SockJS("http://localhost:8080/ws");
             const client = Stomp.over(socket);
             client.debug = () => { }; // Disable noisy debug logs
@@ -102,7 +118,7 @@ export default function MapView() {
     const canSeeTracking =
         user &&
         user.roles &&
-        user.roles.some((r) => r.name === "ROLE_ADMIN" || r.name === "ROLE_COMMISSAIRE");
+        (user.roles.includes("Administrateur") || user.roles.includes("Commissaire"));
 
     return (
         <div className="container mx-auto p-4 max-w-7xl">
