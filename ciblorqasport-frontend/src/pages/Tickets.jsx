@@ -14,6 +14,7 @@ export default function Tickets() {
   const [fichierBillet, setFichierBillet] = useState(null);
   const [evenements, setEvenements] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [viewedTicket, setViewedTicket] = useState(null); // { url, type, nom }
 
   // Fetch user's tickets
   const fetchTickets = async () => {
@@ -99,13 +100,14 @@ export default function Tickets() {
       fetchTickets();
     } catch (err) {
       console.error("Erreur lors de l'import du billet:", err);
-      alert("Erreur lors de l'import du billet. Veuillez réessayer.");
+      const msg = err.response?.data?.message || err.response?.data || "Erreur lors de l'import du billet. Veuillez réessayer.";
+      alert(msg);
     } finally {
       setUploading(false);
     }
   };
 
-  const downloadTicket = async (ticketId, nomFichier) => {
+  const viewTicket = async (ticketId, nomFichier) => {
     try {
       const res = await apiFetch(`/tickets/${ticketId}/download`, {
         method: "GET",
@@ -113,20 +115,22 @@ export default function Tickets() {
         credentials: "include",
       });
 
-      const fileName = nomFichier || `billet-${ticketId}.pdf`;
-      const blob = new Blob([res.data]);
+      const blob = new Blob([res.data], { type: res.headers['content-type'] });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      const type = res.headers['content-type'] || (nomFichier.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+
+      setViewedTicket({ url, type, nom: nomFichier });
     } catch (err) {
-      console.error("Erreur lors du téléchargement:", err);
-      alert("Erreur lors du téléchargement du billet");
+      console.error("Erreur lors de la lecture du billet:", err);
+      alert("Erreur lors de l'ouverture du billet");
     }
+  };
+
+  const closeTicketView = () => {
+    if (viewedTicket?.url) {
+      window.URL.revokeObjectURL(viewedTicket.url);
+    }
+    setViewedTicket(null);
   };
 
   const deleteTicket = async (ticketId) => {
@@ -295,13 +299,14 @@ export default function Tickets() {
 
                 <div className="flex gap-3 pt-4 border-t border-gray-100">
                   <button
-                    onClick={() => downloadTicket(t.id, t.nom)}
+                    onClick={() => viewTicket(t.id, t.nom)}
                     className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    Télécharger
+                    Consulter ticket
                   </button>
                   <button
                     onClick={() => deleteTicket(t.id)}
@@ -316,6 +321,58 @@ export default function Tickets() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal de consultation du billet */}
+      {viewedTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 leading-tight">Consultation du Billet</h3>
+                  <p className="text-xs text-gray-500 font-medium">{viewedTicket.nom}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeTicketView}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+                title="Fermer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 bg-gray-100 overflow-auto flex items-center justify-center p-4">
+              {viewedTicket.type.includes('pdf') ? (
+                <iframe
+                  src={viewedTicket.url}
+                  className="w-full h-full rounded-lg border shadow-sm bg-white"
+                  title="Aperçu du PDF"
+                />
+              ) : (
+                <img
+                  src={viewedTicket.url}
+                  alt="Billet"
+                  className="max-w-full max-h-full h-auto object-contain rounded-lg border shadow-sm bg-white shadow-inner"
+                />
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-gray-50 text-center">
+              <p className="text-xs text-gray-400 italic">
+                Ceci est un aperçu numérique de votre accès officiel. Présentez ce document aux points de contrôle.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

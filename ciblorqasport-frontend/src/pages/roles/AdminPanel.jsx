@@ -52,6 +52,7 @@ export default function AdminPanel() {
   const [cerDescription, setCerDescription] = useState("");
   const [cerErrors, setCerErrors] = useState([]);
   const [cerSuccess, setCerSuccess] = useState("");
+  const [editingCerId, setEditingCerId] = useState(null);
 
   const submitCeremonie = (ev) => {
     ev.preventDefault();
@@ -126,6 +127,9 @@ export default function AdminPanel() {
   // List of epreuves for display
   const [epreuvesList, setEpreuvesList] = useState([]);
 
+  // List of ceremonies for display
+  const [ceremoniesList, setCeremoniesList] = useState([]);
+
   // State for participants management
   const [showParticipantModal, setShowParticipantModal] = useState(false);
   const [currentEpForParticipants, setCurrentEpForParticipants] = useState(null);
@@ -135,6 +139,17 @@ export default function AdminPanel() {
   const [partLoading, setPartLoading] = useState(false);
   const [partError, setPartError] = useState("");
   const [partSuccess, setPartSuccess] = useState("");
+  const [expandedTeamId, setExpandedTeamId] = useState(null);
+
+  // State for volunteer requests
+  const [volunteerRequests, setVolunteerRequests] = useState([]);
+  const [volLoading, setVolLoading] = useState(false);
+  const [volError, setVolError] = useState("");
+  const [volSuccess, setVolSuccess] = useState("");
+
+  // State for planning import
+  const [planningErrors, setPlanningErrors] = useState([]);
+  const [planningSuccess, setPlanningSuccess] = useState("");
 
   const [epDay] = useState([
     { id: 1, name: "50m Libre Hommes (Natation)", status: "en_cours", sport: "Natation" },
@@ -223,6 +238,60 @@ export default function AdminPanel() {
     });
   };
 
+  const loadCeremonies = () => {
+    apiFetch("/events").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        // Filtern on typeObjet discriminator
+        const filtered = r.data.filter(ev => ev.typeObjet === "CEREMONIE");
+        setCeremoniesList(filtered);
+      }
+    }).catch(err => {
+      console.error("Error loading ceremonies:", err);
+    });
+  };
+
+  const deleteCeremonie = async (id) => {
+    if (!window.confirm("Supprimer cette cérémonie ?")) return;
+    try {
+      await apiFetch(`/events/${id}`, { method: "DELETE" });
+      loadCeremonies();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression de la cérémonie.");
+    }
+  };
+
+  const editCeremonie = (c) => {
+    setEditingCerId(c.id);
+    setCerName(c.nom || "");
+    setCerCompetition(c.parent?.id || "");
+    setCerDate(c.dateDebut || "");
+    setCerStartTime(c.heureDebut || "");
+    setCerEndTime(c.heureFin || "");
+    setCerLocation(c.lieu?.id || "");
+    const mapTypeBack = (t) => {
+      if (!t) return "";
+      if (t === "REMISE_MEDAILLES") return "remise_prix";
+      return t.toLowerCase();
+    };
+    setCerType(mapTypeBack(c.typeCeremonie || ""));
+    setTab("ceremonie");
+  };
+
+  const loadVolunteerRequests = () => {
+    setVolLoading(true);
+    apiFetch("/volontaire-requests/all").then((r) => {
+      if (r && Array.isArray(r.data)) {
+        setVolunteerRequests(r.data);
+      }
+    }).catch(err => {
+      console.error("Error loading volunteer requests:", err);
+      setVolError("Erreur lors du chargement des demandes.");
+    }).finally(() => {
+      setVolLoading(false);
+    });
+  };
+
   useEffect(() => {
     loadIncidents();
     loadCompetitions();
@@ -232,6 +301,7 @@ export default function AdminPanel() {
     loadGenres();
     loadLieux();
     loadEpreuves();
+    loadCeremonies();
   }, []);
 
   const resolveIncident = async (incidentId) => {
@@ -248,7 +318,11 @@ export default function AdminPanel() {
   useEffect(() => {
     if (tab === "competition") loadCompetitions();
     if (tab === "epreuve") loadEpreuves();
-    if (tab === "ceremonie") loadLieux(); // Cérémonie a besoin des lieux
+    if (tab === "volontaire") loadVolunteerRequests();
+    if (tab === "ceremonie") {
+      loadLieux();
+      loadCeremonies();
+    }
     if (tab === "alerte") loadIncidents();
   }, [tab]);
 
@@ -483,16 +557,16 @@ export default function AdminPanel() {
     setSelectedAthleteId("");
 
     try {
-      // 1. Charger les athlètes déjà inscrits
-      const resInscrits = await apiFetch(`/epreuves/${ep.id}/athletes`);
+      // 1. Charger les inscrits (Athlètes ou Équipes)
+      const resInscrits = await apiFetch(`/epreuves/${ep.id}/participants`);
       setCurrentParticipants(resInscrits.data || []);
 
-      // 2. Charger les athlètes éligibles (même discipline et genre)
-      const resEligibles = await apiFetch(`/athletes/eligible?discipline=${encodeURIComponent(ep.discipline)}&genre=${encodeURIComponent(ep.genre)}`);
+      // 2. Charger les éligibles (Géré par le backend selon si l'épreuve est par équipe ou non)
+      const resEligibles = await apiFetch(`/epreuves/${ep.id}/participants/eligible`);
       setEligibleAthletes(resEligibles.data || []);
     } catch (err) {
       console.error(err);
-      setPartError("Erreur lors du chargement des athlètes.");
+      setPartError("Erreur lors du chargement des participants.");
     } finally {
       setPartLoading(false);
     }
@@ -505,15 +579,45 @@ export default function AdminPanel() {
     setPartSuccess("");
 
     try {
-      await apiFetch(`/epreuves/${currentEpForParticipants.id}/athletes/${selectedAthleteId}`, { method: "POST" });
-      setPartSuccess("Athlète ajouté !");
-      // Recharger la liste des participants
-      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/athletes`);
+      // On détecte si on ajoute une équipe ou un athlète basé sur les données reçues
+      const isTeam = eligibleAthletes.some(a => a.id === selectedAthleteId && a.type === "EQUIPE");
+      const payload = isTeam ? { equipeId: selectedAthleteId } : { athleteId: selectedAthleteId };
+
+      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`, {
+        method: "POST",
+        data: payload
+      });
+
+      setPartSuccess(isTeam ? "Équipe ajoutée !" : "Athlète ajouté !");
+
+      // Recharger la liste
+      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`);
       setCurrentParticipants(resInscrits.data || []);
       setSelectedAthleteId("");
     } catch (err) {
       console.error(err);
-      setPartError("L'athlète est probablement déjà inscrit ou erreur serveur.");
+      setPartError(err.response?.data?.message || "Erreur lors de l'ajout.");
+    } finally {
+      setPartLoading(false);
+    }
+  };
+
+  const handleRemoveParticipant = async (params) => {
+    if (!window.confirm("Retirer ce participant de l'épreuve ?")) return;
+    setPartLoading(true);
+    setPartError("");
+    try {
+      const searchParams = new URLSearchParams(params).toString();
+      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants?${searchParams}`, {
+        method: "DELETE"
+      });
+      setPartSuccess("Participant retiré !");
+      // Recharger la liste
+      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`);
+      setCurrentParticipants(resInscrits.data || []);
+    } catch (err) {
+      console.error("Erreur lors du retrait:", err);
+      setPartError(err.response?.data?.message || err.message || "Erreur lors du retrait.");
     } finally {
       setPartLoading(false);
     }
@@ -536,6 +640,12 @@ export default function AdminPanel() {
                 onClick={() => setTab("epreuve")}
               >
                 Épreuves
+              </button>
+              <button
+                className={`w-full text-left p-2 rounded ${tab === "volontaire" ? "bg-blue-50 font-semibold" : "hover:bg-gray-100"}`}
+                onClick={() => setTab("volontaire")}
+              >
+                Demandes Volontaires
               </button>
               <button
                 className={`w-full text-left p-2 rounded ${tab === "ceremonie" ? "bg-blue-50 font-semibold" : "hover:bg-gray-100"}`}
@@ -839,8 +949,121 @@ export default function AdminPanel() {
                 </div>
               </div>
             </div >
-          )
-          }
+          )}
+
+          {tab === "volontaire" && (
+            <div className="bg-white p-4 rounded shadow">
+              <h4 className="text-lg font-medium mb-3">Gestion des demandes de volontariat</h4>
+              {volLoading ? (
+                <p>Chargement...</p>
+              ) : volError ? (
+                <p className="text-red-600">{volError}</p>
+              ) : volunteerRequests.length === 0 ? (
+                <p className="text-gray-500 italic">Aucune demande en attente.</p>
+              ) : (
+                <div className="space-y-3">
+                  {volunteerRequests.map((req) => (
+                    <div key={req.id} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="font-bold text-lg">{req.userPrenom} {req.userNom}</div>
+                        <div className="text-sm text-gray-600">
+                          Email: {req.userEmail} • Téléphone: {req.userTelephone || "Non spécifié"}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Événement: {req.evenement?.nom} ({req.evenement?.type})
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Demandé le: {new Date(req.dateDemande).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Accepter cette demande de volontariat ?")) {
+                              apiFetch(`/volontaire-requests/${req.id}/accept?adminId=${user.id}`, { method: "POST" })
+                                .then(() => {
+                                  setVolSuccess("Demande acceptée.");
+                                  loadVolunteerRequests();
+                                })
+                                .catch(err => setVolError("Erreur lors de l'acceptation."));
+                            }
+                          }}
+                          className="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Accepter
+                        </button>
+                        <button
+                          onClick={() => {
+                            const motif = prompt("Motif du refus (optionnel):");
+                            apiFetch(`/volontaire-requests/${req.id}/refuse?adminId=${user.id}&motif=${encodeURIComponent(motif || "")}`, { method: "POST" })
+                              .then(() => {
+                                setVolSuccess("Demande refusée.");
+                                loadVolunteerRequests();
+                              })
+                              .catch(err => setVolError("Erreur lors du refus."));
+                          }}
+                          className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Refuser
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {volSuccess && <div className="text-green-600 mt-4">{volSuccess}</div>}
+            </div>
+          )}
+
+          {/* Section Import Planning */}
+          {tab === "volontaire" && (
+            <div className="bg-white p-4 rounded shadow mt-6">
+              <h4 className="text-lg font-medium mb-3">Importer Planning Volontaires (JSON)</h4>
+              <form onSubmit={(ev) => {
+                ev.preventDefault();
+                setPlanningErrors([]);
+                setPlanningSuccess("");
+                const jsonText = document.getElementById('planningJson').value;
+                if (!jsonText.trim()) {
+                  setPlanningErrors(["Le JSON est requis."]);
+                  return;
+                }
+                try {
+                  const planningData = JSON.parse(jsonText);
+                  if (!Array.isArray(planningData)) {
+                    setPlanningErrors(["Le JSON doit être un tableau d'objets."]);
+                    return;
+                  }
+                  apiFetch("/planning-volontaire/import", {
+                    method: "POST",
+                    data: planningData
+                  }).then(() => {
+                    setPlanningSuccess("Planning importé avec succès !");
+                    document.getElementById('planningJson').value = "";
+                  }).catch(err => {
+                    const errorMsg = err.response?.data?.message || err.response?.data || err.message || "Erreur inconnue";
+                    setPlanningErrors(["Erreur lors de l'import: " + errorMsg]);
+                  });
+                } catch (e) {
+                  setPlanningErrors(["JSON invalide: " + e.message]);
+                }
+              }} className="space-y-3">
+                <div>
+                  <label className="block text-sm">JSON des plannings</label>
+                  <textarea
+                    id="planningJson"
+                    className="mt-1 block w-full border rounded p-2 h-64 font-mono text-sm"
+                    placeholder='Exemple: [{"userEmail": "volontaire@example.com", "evenementId": "123e4567-e89b-12d3-a456-426614174000", "date": "2026-03-16", "heureDebut": "09:00", "heureFin": "12:00", "role": "Accueil"}]'
+                  />
+                </div>
+                {planningErrors.length > 0 && <div className="text-red-600">{planningErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
+                {planningSuccess && <div className="text-green-600">{planningSuccess}</div>}
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Importer</button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {
             tab === "ceremonie" && (
@@ -877,25 +1100,39 @@ export default function AdminPanel() {
                     dateFin: cerDate,
                     heureDebut: cerStartTime,
                     heureFin: cerEndTime,
-                    paysOrganisateur: cerLocation,
+                    lieu: cerLocation ? { id: cerLocation } : null,
+                    parent: cerCompetition ? { id: cerCompetition, typeObjet: "COMPETITION" } : null,
                     status: "Planifié",
                     typeCeremonie: mapCerType(cerType)
                   };
 
                   try {
-                    const url = cerCompetition
-                      ? `/competitions/${cerCompetition}/children`
-                      : "/events"; // Fallback to generic events if no competition
+                    if (editingCerId) {
+                      await apiFetch(`/events/${editingCerId}`, {
+                        method: "PUT",
+                        data: ceremonieData
+                      });
+                      setCerSuccess("Cérémonie mise à jour !");
+                    } else {
+                      const url = cerCompetition
+                        ? `/competitions/${cerCompetition}/children`
+                        : "/events"; // Fallback to generic events if no competition
 
-                    await apiFetch(url, {
-                      method: "POST",
-                      data: ceremonieData
-                    });
-                    setCerSuccess("Cérémonie créée avec succès !");
-                    setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerDescription(""); setCerCompetition("");
+                      await apiFetch(url, {
+                        method: "POST",
+                        data: ceremonieData
+                      });
+                      setCerSuccess("Cérémonie créée avec succès !");
+                    }
+                    setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerCompetition("");
+                    setEditingCerId(null);
+                    loadCeremonies();
                   } catch (error) {
-                    console.error("Erreur création cérémonie:", error);
-                    setCerErrors(["Erreur lors de la création de la cérémonie sur le serveur."]);
+                    console.error("Erreur création/modification cérémonie:", error);
+                    const status = error.response ? error.response.status : "Inconnu";
+                    const errorMsg = error.response?.data?.message || error.response?.data || "Erreur serveur.";
+                    alert(`Erreur technique (${status})\nMessage: ${errorMsg}`);
+                    setCerErrors(["Erreur lors de l'enregistrement de la cérémonie sur le serveur."]);
                   }
                 }} className="space-y-3">
                   <div>
@@ -939,7 +1176,16 @@ export default function AdminPanel() {
                     </div>
                     <div>
                       <label className="block text-sm">Lieu</label>
-                      <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
+                      <select
+                        value={cerLocation}
+                        onChange={(e) => setCerLocation(e.target.value)}
+                        className="mt-1 block w-full border rounded p-2"
+                      >
+                        <option value="">-- Choisir un lieu --</option>
+                        {lieuList.map((l) => (
+                          <option key={l.id} value={l.id}>{l.nom}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div>
@@ -951,26 +1197,68 @@ export default function AdminPanel() {
                       <option value="remise_prix">Cérémonie de remise de prix</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm">Lieu</label>
-                    <input value={cerLocation} onChange={(e) => setCerLocation(e.target.value)} className="mt-1 block w-full border rounded p-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm">Description (optionnel)</label>
-                    <textarea value={cerDescription} onChange={(e) => setCerDescription(e.target.value)} className="mt-1 block w-full border rounded p-2" rows={4} />
-                  </div>
+                  {/* Lieu input et Description retirés à la demande de l'utilisateur */}
 
                   {cerErrors.length > 0 && <div className="text-red-600">{cerErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
                   {cerSuccess && <div className="text-green-600">{cerSuccess}</div>}
 
                   <div className="flex gap-2">
-                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+                      {editingCerId ? "Mettre à jour" : "Créer"}
+                    </button>
+                    {editingCerId && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingCerId(null); setCerName(""); setCerDate(""); setCerStartTime(""); setCerEndTime(""); setCerType(""); setCerLocation(""); setCerCompetition(""); setCerSuccess(""); setCerErrors([]); }}
+                        className="bg-gray-400 text-white px-4 py-2 rounded"
+                      >
+                        Annuler
+                      </button>
+                    )}
                   </div>
                 </form>
+
+                <div className="mt-8 border-t pt-4">
+                  <h5 className="font-semibold mb-4 text-gray-700">Liste des cérémonies</h5>
+                  <div className="space-y-3">
+                    {ceremoniesList.length === 0 && <p className="text-gray-500 italic">Aucune cérémonie trouvée.</p>}
+                    {ceremoniesList.map((c) => {
+                      const cid = c.id;
+                      const cname = c.nom || "Cérémonie sans nom";
+                      return (
+                        <div key={cid} className="p-4 border rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="font-bold text-lg">{cname}</div>
+                            <div className="text-sm text-gray-600">
+                              {/* TypeCeremonie (OUVERTURE/CLOTURE...) retiré à la demande de l'utilisateur */}
+                              {c.dateDebut}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {c.lieu?.nom || "Lieu non spécifié"} • {c.heureDebut} - {c.heureFin}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => editCeremonie(c)}
+                              className="text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded text-sm transition-colors"
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              onClick={() => deleteCeremonie(cid)}
+                              className="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )
           }
-
           {
             tab === "analytics" && (
               <div className="bg-white p-4 rounded shadow">
@@ -1153,21 +1441,85 @@ export default function AdminPanel() {
 
                   {/* Liste actuelle */}
                   <section>
-                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits ({currentParticipants.length})</h4>
+                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits</h4>
                     {currentParticipants.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                         <p className="text-gray-500">Aucun participant pour le moment.</p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {currentParticipants.map(p => (
-                          <div key={p.id} className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm">
-                            <span className="font-medium text-gray-800">{p.prenom} {p.nom}</span>
-                            {/* Optionnel: bouton supprimer participation */}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    ) : (() => {
+                      const hasTeams = currentParticipants.some(p => p.type === 'EQUIPE');
+                      const displayList = hasTeams
+                        ? currentParticipants.filter(p => p.type === 'EQUIPE')
+                        : currentParticipants;
+
+                      return (
+                        <div className="space-y-3">
+                          {displayList.map(p => (
+                            <div key={p.id + p.type} className="border rounded-lg overflow-hidden shadow-sm">
+                              <div
+                                className={`flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors cursor-pointer ${p.type === 'EQUIPE' ? 'font-bold text-blue-800' : 'font-medium text-gray-800'}`}
+                                onClick={() => {
+                                  if (p.type === 'EQUIPE') {
+                                    setExpandedTeamId(expandedTeamId === p.id ? null : p.id);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {p.type === 'EQUIPE' ? '👥' : '👤'}
+                                  <span>{p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`} ({p.nation})</span>
+                                </div>
+                                {p.type === 'EQUIPE' && (
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                    {expandedTeamId === p.id ? "Masquer membres" : "Voir membres"}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveParticipant(p.type === 'EQUIPE' ? { equipeId: p.id } : { athleteId: p.id });
+                                  }}
+                                  className="text-red-500 hover:text-red-700 p-1 font-bold text-lg"
+                                  title="Retirer de l'épreuve"
+                                >
+                                  &times;
+                                </button>
+                              </div>
+
+                              {p.type === 'EQUIPE' && expandedTeamId === p.id && (
+                                <div className="bg-gray-50 border-t p-3 text-sm space-y-2">
+                                  <p className="text-xs text-gray-500 font-bold uppercase mb-2">Membres inscrits pour cette épreuve :</p>
+                                  {(() => {
+                                    // On filtre les membres de l'équipe qui sont AUSSI dans currentParticipants comme ATHLETE
+                                    const registeredMembers = p.membres.filter(m =>
+                                      currentParticipants.some(cp => cp.type === 'ATHLETE' && cp.id === m.id)
+                                    );
+
+                                    return registeredMembers.length > 0 ? (
+                                      <ul className="space-y-1">
+                                        {registeredMembers.map(m => (
+                                          <li key={m.id} className="bg-white p-2 rounded border border-gray-100 flex justify-between items-center group">
+                                            <span>{m.prenom} {m.nom}</span>
+                                            <button
+                                              onClick={() => handleRemoveParticipant({ athleteId: m.id })}
+                                              className="text-amber-600 hover:text-amber-800 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                              title="Retirer cet athlète (blessure, etc.)"
+                                            >
+                                              Retirer (blessé ?)
+                                            </button>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-gray-400 italic">Aucun membre n'est actuellement inscrit comme participant individuel.</p>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </section>
                 </div>
 

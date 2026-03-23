@@ -7,6 +7,7 @@ export default function AthleteRequestSection() {
   const { user } = useAuth();
   const [demande, setDemande] = useState(null);
   const [refusedRequests, setRefusedRequests] = useState([]);
+  const [allRequests, setAllRequests] = useState([]); // New state for filtering
   const [showFormModal, setShowFormModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -25,18 +26,17 @@ export default function AthleteRequestSection() {
       );
       setDemande(res.data);
 
-      try {
-        const allRes = await apiFetch(
-          `/athlete-requests/me/all?email=${encodeURIComponent(user.email)}`
-        );
-        const arr = Array.isArray(allRes.data) ? allRes.data : [];
-        setRefusedRequests(arr.filter((r) => r.status === "refusee"));
-      } catch (err) {
-        setRefusedRequests([]);
-      }
+      const allRes = await apiFetch(
+        `/athlete-requests/me/all?email=${encodeURIComponent(user.email)}`
+      );
+      const arr = Array.isArray(allRes.data) ? allRes.data : [];
+      setAllRequests(arr);
+      setRefusedRequests(arr.filter((r) => r.status === "refusee"));
     } catch (err) {
+      console.error("Error fetching requests:", err);
       setDemande(null);
       setRefusedRequests([]);
+      setAllRequests([]);
     } finally {
       setLoading(false);
     }
@@ -63,17 +63,17 @@ export default function AthleteRequestSection() {
             </p>
           )}
 
-          {demande.status !== "en_attente" && (
-            <div className="mt-4">
-              <p className="mb-2">Vous pouvez soumettre une nouvelle demande :</p>
-              <button
-                onClick={() => setShowFormModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Nouvelle demande
-              </button>
-            </div>
-          )}
+          <div className="mt-4">
+            <p className="mb-2 italic text-sm text-gray-500">
+              Vous avez déjà une demande enregistrée, mais vous pouvez en soumettre une nouvelle pour une autre discipline :
+            </p>
+            <button
+              onClick={() => setShowFormModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow-md transition-all"
+            >
+              Postuler pour une autre discipline
+            </button>
+          </div>
 
           {refusedRequests.length > 0 && (
             <div className="mt-4">
@@ -119,6 +119,7 @@ export default function AthleteRequestSection() {
               </button>
             </div>
             <AthleteRequestForm
+              allRequests={allRequests}
               onSuccess={() => {
                 fetchDemande();
                 setShowFormModal(false);

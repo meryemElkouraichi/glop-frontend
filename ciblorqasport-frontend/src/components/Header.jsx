@@ -1,6 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ROLES } from "../constants/roles";
+import { useEffect, useState, useRef } from "react";
+import { apiFetch } from "../api/apiClient";
+import SockJS from "sockjs-client";
+import { Stomp } from "@stomp/stompjs";
 
 const getMainDashboard = (roles) => {
   if (roles.includes(ROLES.ADMIN)) return "/administrateur";
@@ -13,6 +17,38 @@ const getMainDashboard = (roles) => {
 export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const stompClientRef = useRef(null);
+
+  const fetchUnreadCount = async () => {
+    if (!user) return;
+    try {
+      const res = await apiFetch("/notifications/count-unread");
+      setUnreadCount(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+
+    if (user) {
+      const socket = new SockJS("http://localhost:8080/ws");
+      const client = Stomp.over(socket);
+      client.debug = () => { };
+      client.connect({}, () => {
+        client.subscribe("/topic/notifications", () => {
+          fetchUnreadCount();
+        });
+      });
+      stompClientRef.current = client;
+
+      return () => {
+        if (stompClientRef.current) stompClientRef.current.disconnect();
+      };
+    }
+  }, [user]);
 
   if (!user) return null;
 
@@ -31,11 +67,12 @@ export default function Header() {
           CiblOrgaSport
         </button>
 
-        <nav className="space-x-3 text-sm">
+        <nav className="space-x-3 text-sm flex items-center">
           {user.roles.includes(ROLES.ADMIN) && (
             <>
               <button onClick={() => navigate('/administrateur#competition')}>Compétitions</button>
               <button onClick={() => navigate('/administrateur#epreuve')}>Épreuves</button>
+              <button onClick={() => navigate('/administrateur#volontaire')}>Demandes Volontaires</button>
               <button onClick={() => navigate('/administrateur#alerte')}>Alertes</button>
               <button onClick={() => navigate('/administrateur#ceremonie')}>Cérémonies</button>
               <button onClick={() => navigate('/administrateur#analytics')}>Analyses & Statistiques</button>
@@ -45,7 +82,16 @@ export default function Header() {
             <button onClick={() => navigate("/events")}>Événements</button>
           )}
           <button onClick={() => navigate("/map")}>Carte</button>
-          <button onClick={() => navigate("/notifications")}>Notifications</button>
+
+          <button onClick={() => navigate("/notifications")} className="relative flex items-center">
+            Notifications
+            {unreadCount > 0 && (
+              <span className="ml-1 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
           <button onClick={() => navigate("/tickets")}>Mes billets</button>
 
           {user.roles.includes(ROLES.SPECTATEUR) && (
