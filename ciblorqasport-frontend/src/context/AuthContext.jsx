@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
+import SockJS from "sockjs-client";
+import { Stomp } from "@stomp/stompjs";
 
 export const AuthContext = createContext();
 
@@ -12,8 +14,8 @@ const normalizeUser = (user) => {
     roles: Array.isArray(user.roles)
       ? user.roles
       : user.roles
-      ? [user.roles]
-      : [],
+        ? [user.roles]
+        : [],
     prenom: user.prenom,
     nom: user.nom,
     telephone: user.telephone,
@@ -35,6 +37,41 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
+
+  const [unreadCount, setUnreadCount] = useState(0);
+  const stompClientRef = useRef(null);
+
+  const refreshUnreadCount = async () => {
+    if (!user) return;
+    try {
+      const res = await apiFetch("/notifications/count-unread");
+      setUnreadCount(res.data);
+    } catch (err) {
+      console.error("Error fetching unread count:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      refreshUnreadCount();
+
+      const socket = new SockJS("http://localhost:8080/ws");
+      const client = Stomp.over(socket);
+      client.debug = () => { };
+      client.connect({}, () => {
+        client.subscribe("/topic/notifications", () => {
+          refreshUnreadCount();
+        });
+      });
+      stompClientRef.current = client;
+
+      return () => {
+        if (stompClientRef.current) stompClientRef.current.disconnect();
+      };
+    } else {
+      setUnreadCount(0);
+    }
+  }, [user]);
 
   // Login via Spring Security session
   const login = async (email, password) => {
@@ -61,7 +98,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, unreadCount, refreshUnreadCount }}>
       {children}
     </AuthContext.Provider>
   );

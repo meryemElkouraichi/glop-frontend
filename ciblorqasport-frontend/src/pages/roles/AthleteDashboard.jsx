@@ -59,7 +59,7 @@ export default function AthleteDashboard() {
       </div>
 
       <div className="glass-card p-6 mb-8 rounded-xl shadow-sm border border-white/20">
-        <p className="text-gray-700">
+        <p className="text-white-700" style={{ color: "white" }}>
           Bonjour **{user?.prenom}**, vous êtes actuellement connecté.
           Conformément à la Charte Européenne du sport et aux règles anti-dopage,
           votre position est partagée avec les commissaires officiels pendant la compétition.

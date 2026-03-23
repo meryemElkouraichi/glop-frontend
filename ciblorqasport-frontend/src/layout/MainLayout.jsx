@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 import Header from "../components/Header";
+import Sidebar from "../components/Sidebar";
 import ProtectedRoute from "../routes/ProtectedRoute";
 
 import Home from "../pages/Home";
@@ -27,10 +28,6 @@ import ResultatsEpreuve from "../pages/roles/ResultatsEpreuve";
 
 import { ROLES } from "../constants/roles";
 
-const getMainDashboard = () => {
-  return "/home";
-};
-
 export default function MainLayout() {
   const { user } = useAuth();
 
@@ -43,124 +40,130 @@ export default function MainLayout() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-      <Header />
+    <div className="min-h-screen flex bg-slate-50">
+      {user && <Sidebar />}
 
-      <main className="flex-1 max-w-5xl mx-auto w-full">
-        <Routes>
-          {/* Route par défaut */}
-          <Route
-            path="/"
-            element={user ? <Navigate to="/home" replace /> : <Login />}
-          />
+      <div className={`flex-1 flex flex-col ${user ? "pl-64" : ""}`}>
+        <Header />
 
-          {/* Pages publiques */}
-          <Route path="/home" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/events/:id" element={<EventDetail />} />
-          <Route
-            path="/events/:id/resultats"
-            element={
-              <ProtectedRoute allowedRoles={[ROLES.COMMISSAIRE, ROLES.ADMIN]}>
-                <ResultatsEpreuve />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/map" element={<MapView />} />
+        <main className="flex-1 p-8 overflow-y-auto">
+          <div className="max-w-6xl mx-auto">
+            <Routes>
+              {/* Route par défaut */}
+              <Route
+                path="/"
+                element={user ? <Navigate to="/home" replace /> : <Login />}
+              />
 
-          {/* Notifications et profil (tous les rôles connectés) */}
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute allowedRoles={allRoles}>
-                <Notifications />
-              </ProtectedRoute>
-            }
-          />
+              {/* Pages publiques */}
+              <Route path="/home" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:id" element={<EventDetail />} />
+              <Route
+                path="/events/:id/resultats"
+                element={
+                  <ProtectedRoute allowedRoles={[ROLES.COMMISSAIRE, ROLES.ADMIN]}>
+                    <ResultatsEpreuve />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/map" element={<MapView />} />
 
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute allowedRoles={allRoles}>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+              {/* Notifications et profil (tous les rôles connectés) */}
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute allowedRoles={allRoles}>
+                    <Notifications />
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* Section Spectateur (accessible à tous les rôles) */}
-          <Route
-            path="/tickets"
-            element={
-              <ProtectedRoute allowedRoles={allRoles}>
-                <Tickets />
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute allowedRoles={allRoles}>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/spectateur"
-            element={
-              <ProtectedRoute allowedRoles={allRoles}>
-                <SpectatorDashboard />
-              </ProtectedRoute>
-            }
-          />
+              {/* Section Spectateur (accessible à tous les rôles) */}
+              <Route
+                path="/tickets"
+                element={
+                  <ProtectedRoute allowedRoles={allRoles}>
+                    <Tickets />
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/mes-demandes"
-            element={
-              <ProtectedRoute allowedRoles={allRoles}>
-                <MyRequests />
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/spectateur"
+                element={
+                  <ProtectedRoute allowedRoles={allRoles}>
+                    <SpectatorDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* Dashboard Athlète */}
-          <Route
-            path="/athlete"
-            element={
-              <ProtectedRoute allowedRoles={[ROLES.ATHLETE]}>
-                <AthleteDashboard />
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/mes-demandes"
+                element={
+                  <ProtectedRoute allowedRoles={allRoles}>
+                    <MyRequests />
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* Dashboard Commissaire */}
-          <Route
-            path="/commissaire"
-            element={
-              <ProtectedRoute allowedRoles={[ROLES.COMMISSAIRE]}>
-                <CommissairePanel />
-              </ProtectedRoute>
-            }
-          />
+              {/* Dashboard Athlète */}
+              <Route
+                path="/athlete"
+                element={
+                  <ProtectedRoute allowedRoles={[ROLES.ATHLETE]}>
+                    <AthleteDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* Dashboard Volontaire */}
-          <Route
-            path="/volontaire"
-            element={
-              <ProtectedRoute allowedRoles={[ROLES.VOLONTAIRE]}>
-                <VolunteerSchedule />
-              </ProtectedRoute>
-            }
-          />
+              {/* Dashboard Commissaire */}
+              <Route
+                path="/commissaire"
+                element={
+                  <ProtectedRoute allowedRoles={[ROLES.COMMISSAIRE]}>
+                    <CommissairePanel />
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* Dashboard Administrateur */}
-          <Route
-            path="/administrateur"
-            element={
-              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                <AdminPanel />
-              </ProtectedRoute>
-            }
-          />
+              {/* Dashboard Volontaire */}
+              <Route
+                path="/volontaire"
+                element={
+                  <ProtectedRoute allowedRoles={[ROLES.VOLONTAIRE]}>
+                    <VolunteerSchedule />
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+              {/* Dashboard Administrateur */}
+              <Route
+                path="/administrateur"
+                element={
+                  <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

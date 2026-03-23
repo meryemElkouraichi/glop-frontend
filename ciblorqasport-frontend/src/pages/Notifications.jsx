@@ -3,9 +3,11 @@ import { apiFetch } from "../api/apiClient";
 import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
 
+import { useAuth } from "../context/AuthContext";
+
 export default function Notifications() {
+  const { refreshUnreadCount } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const stompClientRef = useRef(null);
 
   const fetchNotifications = async () => {
     try {
@@ -29,10 +31,9 @@ export default function Notifications() {
         fetchNotifications();
       });
     });
-    stompClientRef.current = client;
 
     return () => {
-      if (stompClientRef.current) stompClientRef.current.disconnect();
+      if (client) client.disconnect();
     };
   }, []);
 
@@ -44,6 +45,7 @@ export default function Notifications() {
 
     try {
       await apiFetch(`/notifications/${notificationId}/read`, { method: "PUT" });
+      refreshUnreadCount(); // <-- Synchronisation immédiate avec le Header
     } catch (error) {
       console.error("Erreur lors du marquage comme lu:", error);
       alert("Erreur technique : la notification n'a pas pu être marquée comme lue.");
@@ -95,7 +97,7 @@ export default function Notifications() {
                   {n.level}
                 </span>
                 {!n.lu && (
-                  <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full animate-pulse">
+                  <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full animate-pulse" >
                     NOUVEAU
                   </span>
                 )}

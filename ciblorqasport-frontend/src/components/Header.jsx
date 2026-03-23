@@ -15,121 +15,57 @@ const getMainDashboard = (roles) => {
 };
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, unreadCount } = useAuth();
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const stompClientRef = useRef(null);
-
-  const fetchUnreadCount = async () => {
-    if (!user) return;
-    try {
-      const res = await apiFetch("/notifications/count-unread");
-      setUnreadCount(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchUnreadCount();
-
-    if (user) {
-      const socket = new SockJS("http://localhost:8080/ws");
-      const client = Stomp.over(socket);
-      client.debug = () => { };
-      client.connect({}, () => {
-        client.subscribe("/topic/notifications", () => {
-          fetchUnreadCount();
-        });
-      });
-      stompClientRef.current = client;
-
-      return () => {
-        if (stompClientRef.current) stompClientRef.current.disconnect();
-      };
-    }
-  }, [user]);
 
   if (!user) return null;
 
-  const goToDashboard = () => {
-    navigate(getMainDashboard(user.roles));
-  };
-
   return (
-    <header className="flex justify-between items-center px-6 py-3 bg-white shadow mb-4">
-      <div className="flex items-center space-x-4">
-        {/* Show admin links inline in the top nav for admins */}
-        <button
-          onClick={goToDashboard}
-          className="font-bold text-lg hover:underline"
-        >
-          CiblOrgaSport
-        </button>
-
-        <nav className="space-x-3 text-sm flex items-center">
-          {user.roles.includes(ROLES.ADMIN) && (
-            <>
-              <button onClick={() => navigate('/administrateur#competition')}>Compétitions</button>
-              <button onClick={() => navigate('/administrateur#epreuve')}>Épreuves</button>
-              <button onClick={() => navigate('/administrateur#volontaire')}>Demandes Volontaires</button>
-              <button onClick={() => navigate('/administrateur#alerte')}>Alertes</button>
-              <button onClick={() => navigate('/administrateur#ceremonie')}>Cérémonies</button>
-              <button onClick={() => navigate('/administrateur#analytics')}>Analyses & Statistiques</button>
-            </>
-          )}
-          {!user.roles.includes(ROLES.ADMIN) && (
-            <button onClick={() => navigate("/events")}>Événements</button>
-          )}
-          <button onClick={() => navigate("/map")}>Carte</button>
-
-          <button onClick={() => navigate("/notifications")} className="relative flex items-center">
-            Notifications
-            {unreadCount > 0 && (
-              <span className="ml-1 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          <button onClick={() => navigate("/tickets")}>Mes billets</button>
-
-          {user.roles.includes(ROLES.SPECTATEUR) && (
-            <button onClick={() => navigate("/mes-demandes")}>Mes demandes</button>
-          )}
-
-          {user.roles.includes(ROLES.ATHLETE) && (
-            <button onClick={() => navigate("/athlete")}>Espace athlète</button>
-          )}
-          {user.roles.includes(ROLES.COMMISSAIRE) && (
-            <button onClick={() => navigate("/commissaire")}>Demandes en attente</button>
-          )}
-          {user.roles.includes(ROLES.VOLONTAIRE) && (
-            <button onClick={() => navigate("/volontaire")}>Volontaire</button>
-          )}
-          {/* Admin link removed: admins are redirected automatically to their dashboard on login */}
-        </nav>
-
+    <header className="flex justify-between items-center px-8 py-4 bg-white/40 backdrop-blur-md border-b border-white/20 sticky top-0 z-40">
+      <div>
+        <h2 className="text-xl font-semibold text-slate-800 tracking-tight">
+          Tableau de Bord
+        </h2>
       </div>
 
-      <div className="flex items-center space-x-3 text-sm">
-        <span>
-          Connecté : <strong>{user.prenom} {user.nom}</strong>
-        </span>
-
+      <div className="flex items-center space-x-6">
         <button
-          onClick={() => navigate("/profile")}
-          className="underline"
+          onClick={() => navigate("/notifications")}
+          className="relative group p-2 rounded-full hover:bg-slate-100 transition-colors"
         >
-          Profil
+          <span className="text-xl opacity-70 group-hover:opacity-100 transition-opacity">🔔</span>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 bg-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center border-2 border-white">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
-        <button
-          onClick={logout}
-          className="border px-2 py-1 rounded"
-        >
-          Se déconnecter
-        </button>
+        <div className="flex items-center space-x-3 pl-6 border-l border-slate-200">
+          <div className="flex flex-col items-end mr-2">
+            <span className="text-sm font-bold text-slate-800">
+              {user.prenom} {user.nom}
+            </span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+              {user.roles[0]}
+            </span>
+          </div>
+
+          <button
+            onClick={() => navigate("/profile")}
+            className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold hover:bg-primary/20 transition-colors"
+          >
+            {user.prenom[0]}{user.nom[0]}
+          </button>
+
+          <button
+            onClick={logout}
+            className="p-2 ml-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            title="Se déconnecter"
+          >
+            🚪
+          </button>
+        </div>
       </div>
     </header>
   );
