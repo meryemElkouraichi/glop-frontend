@@ -66,6 +66,7 @@ export default function EventDetail() {
   };
 
   const submitAddParticipant = async () => {
+    if (!checkHabilitation()) return;
     if (!selectedAthleteId) return;
     setPartLoading(true);
     setPartError("");
@@ -159,7 +160,20 @@ export default function EventDetail() {
   if (!event) return <div className="p-12 text-center text-gray-500">Chargement des détails...</div>;
 
   const isCommissaire = user?.roles?.some(r => r === ROLES.COMMISSAIRE);
-  const isCommissaireOrAdmin = user?.roles?.some(r => r === ROLES.COMMISSAIRE || r === ROLES.ADMIN);
+  const isAdmin = user?.roles?.some(r => r === ROLES.ADMIN);
+  const isCommissaireOrAdmin = isCommissaire || isAdmin;
+  const isHabilite = isAdmin || (isCommissaire && user?.disciplines?.some(d =>
+    d.toLowerCase().trim() === (event.discipline || "").toLowerCase().trim()
+  ));
+
+  const checkHabilitation = (e) => {
+    if (!isHabilite) {
+      if (e) e.preventDefault();
+      alert("Vous n'êtes pas habilités sur cette épreuve");
+      return false;
+    }
+    return true;
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -233,7 +247,7 @@ export default function EventDetail() {
               <div className="p-8 space-y-8">
                 {/* Search/Add Section */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Ajouter un athlète à l'épreuve</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Ajouter un athlète ou une équipe à l'épreuve</p>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <select
                       className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-slate-500/20 outline-none transition-all shadow-sm"
@@ -241,7 +255,7 @@ export default function EventDetail() {
                       onChange={(e) => setSelectedAthleteId(e.target.value)}
                       disabled={partLoading || eligibleAthletes.length === 0}
                     >
-                      <option value="">-- Sélectionner un athlète --</option>
+                      <option value="">-- Sélectionner un athlète ou une équipe --</option>
                       {eligibleAthletes.map(a => (
                         <option key={a.id} value={a.id}>{a.prenom || a.nom} {a.prenom ? a.nom : ""} ({a.nation})</option>
                       ))}
@@ -412,18 +426,15 @@ export default function EventDetail() {
 
           {/* Actions Card */}
           {event.typeObjet === "EPREUVE" && isCommissaireOrAdmin && (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Actions de contrôle</p>
-              <div className="space-y-3">
-                <Link
-                  to={`/events/${id}/resultats`}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white px-6 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-900/10 active:scale-[0.98]"
-                >
-                  <span className="text-xl">🏆</span>
-                  Gérer les résultats
-                </Link>
-                {/* Plus d'actions peuvent être ajoutées ici */}
-              </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-6">
+              <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Actions de Contrôle</p>
+              <Link
+                to={`/events/${id}/resultats`}
+                onClick={(e) => checkHabilitation(e)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold transition-all shadow-lg shadow-slate-900/10 active:scale-[0.98]"
+              >
+                <span>🏆</span> Gérer les résultats
+              </Link>
             </div>
           )}
 

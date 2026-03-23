@@ -19,6 +19,7 @@ const normalizeUser = (user) => {
     prenom: user.prenom,
     nom: user.nom,
     telephone: user.telephone,
+    disciplines: Array.isArray(user.disciplines) ? user.disciplines : []
   };
 };
 
