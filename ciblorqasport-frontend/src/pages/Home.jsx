@@ -42,19 +42,14 @@ export default function Home() {
             Bienvenue sur <span className="font-bold text-white">CiblOrgaSport</span> en tant que <span className="inline-flex items-center px-3 py-1 rounded-md bg-white/10 text-white font-semibold border border-white/20">{mainRole}</span>.
           </p>
 
-          <div className="pt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-default">
-              <div className="text-blue-300 text-xs uppercase tracking-widest mb-1">Session Active</div>
-              <div className="text-white font-mono text-sm">{user.email}</div>
-            </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-default">
-              <div className="text-blue-300 text-xs uppercase tracking-widest mb-1">Localisation</div>
-              <div className="text-white font-medium">{user.consentementLocalisation ? "Activée" : "Désactivée"}</div>
-            </div>
+          <div className="pt-10 flex justify-center space-x-4">
+            <div className="h-1 w-20 bg-gradient-to-r from-transparent to-blue-400 rounded-full" />
+            <div className="h-1 w-1 bg-blue-300 rounded-full" />
+            <div className="h-1 w-20 bg-gradient-to-l from-transparent to-blue-400 rounded-full" />
           </div>
 
           <div className="pt-6 animate-pulse">
-            <p className="text-blue-200/60 text-sm">Exploitez vos fonctionnalités via le menu de navigation.</p>
+            <p className="text-blue-200/60 text-sm italic">Utilisez le menu latéral pour naviguer dans vos fonctionnalités.</p>
           </div>
         </div>
       </div>

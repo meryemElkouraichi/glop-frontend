@@ -333,19 +333,8 @@ export default function AdminPanel() {
     }
   }, [location]);
 
-  // Competitions list for dropdowns
-  const [competitionsList, setCompetitionsList] = useState([]);
-
-  useEffect(() => {
-    fetchCompetitions();
-  }, []);
-
   const fetchCompetitions = () => {
-    apiFetch("/competitions").then((r) => {
-      if (r && Array.isArray(r.data)) {
-        setCompetitionsList(r.data);
-      }
-    });
+    loadCompetitions();
   };
 
   const validateCompetition = () => {
@@ -490,8 +479,9 @@ export default function AdminPanel() {
       loadEpreuves();
     } catch (error) {
       console.error("Erreur enregistrement épreuve:", error);
-      const msg = error.response?.data || "Erreur lors de l'enregistrement de l'épreuve. Vérifiez les dates par rapport à la compétition.";
-      setEpErrors([typeof msg === 'string' ? msg : "Erreur serveur."]);
+      const serverMsg = error.response?.data?.message || (typeof error.response?.data === 'string' ? error.response.data : null);
+      const msg = serverMsg || "Erreur lors de l'enregistrement de l'épreuve. Vérifiez les dates par rapport à la compétition.";
+      setEpErrors([msg]);
     }
   };
 
@@ -809,15 +799,20 @@ export default function AdminPanel() {
                   <label className="block text-sm">Compétition associée</label>
                   <select
                     value={epCompetition}
-                    onChange={(e) => setEpCompetition(e.target.value)}
+                    onChange={(e) => {
+                      setEpCompetition(e.target.value);
+                      setEpLieuId(""); // Reset lieu on competition change
+                    }}
                     className="mt-1 block w-full border rounded p-2"
                   >
                     <option value="">-- Choisir une compétition --</option>
                     {competitions.map(c => (
-                      <option key={c.id} value={c.id}>{c.nom}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.nom} ({c.paysOrganisateur})
+                      </option>
                     ))}
                   </select>
-                </div >
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm">Discipline</label>
@@ -865,12 +860,20 @@ export default function AdminPanel() {
                       value={epLieuId}
                       onChange={(e) => setEpLieuId(e.target.value)}
                       className="mt-1 block w-full border rounded p-2"
+                      disabled={!epCompetition}
                     >
                       <option value="">-- Choisir un lieu --</option>
-                      {lieuList.map((l) => (
-                        <option key={l.id} value={l.id}>{l.nom}</option>
-                      ))}
+                      {lieuList
+                        .filter(l => {
+                          if (!epCompetition) return true;
+                          const comp = competitions.find(c => c.id === epCompetition);
+                          return comp ? l.pays === comp.paysOrganisateur : true;
+                        })
+                        .map((l) => (
+                          <option key={l.id} value={l.id}>{l.nom} ({l.ville}, {l.pays})</option>
+                        ))}
                     </select>
+                    {!epCompetition && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
                   </div>
                 </div>
 
@@ -1137,10 +1140,19 @@ export default function AdminPanel() {
                 }} className="space-y-3">
                   <div>
                     <label className="block text-sm">Compétition Parente</label>
-                    <select value={cerCompetition} onChange={(e) => setCerCompetition(e.target.value)} className="mt-1 block w-full border rounded p-2">
+                    <select
+                      value={cerCompetition}
+                      onChange={(e) => {
+                        setCerCompetition(e.target.value);
+                        setCerLocation(""); // Reset location on change
+                      }}
+                      className="mt-1 block w-full border rounded p-2"
+                    >
                       <option value="">-- Choisir une compétition --</option>
                       {competitions.map(c => (
-                        <option key={c.id} value={c.id}>{c.nom}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.nom} ({c.paysOrganisateur})
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1180,12 +1192,20 @@ export default function AdminPanel() {
                         value={cerLocation}
                         onChange={(e) => setCerLocation(e.target.value)}
                         className="mt-1 block w-full border rounded p-2"
+                        disabled={!cerCompetition}
                       >
                         <option value="">-- Choisir un lieu --</option>
-                        {lieuList.map((l) => (
-                          <option key={l.id} value={l.id}>{l.nom}</option>
-                        ))}
+                        {lieuList
+                          .filter(l => {
+                            if (!cerCompetition) return true;
+                            const comp = competitions.find(c => c.id === cerCompetition);
+                            return comp ? l.pays === comp.paysOrganisateur : true;
+                          })
+                          .map((l) => (
+                            <option key={l.id} value={l.id}>{l.nom} ({l.ville}, {l.pays})</option>
+                          ))}
                       </select>
+                      {!cerCompetition && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
                     </div>
                   </div>
                   <div>
