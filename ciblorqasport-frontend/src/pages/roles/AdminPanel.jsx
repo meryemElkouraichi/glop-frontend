@@ -130,16 +130,6 @@ export default function AdminPanel() {
   // List of ceremonies for display
   const [ceremoniesList, setCeremoniesList] = useState([]);
 
-  // State for participants management
-  const [showParticipantModal, setShowParticipantModal] = useState(false);
-  const [currentEpForParticipants, setCurrentEpForParticipants] = useState(null);
-  const [eligibleAthletes, setEligibleAthletes] = useState([]);
-  const [currentParticipants, setCurrentParticipants] = useState([]);
-  const [selectedAthleteId, setSelectedAthleteId] = useState("");
-  const [partLoading, setPartLoading] = useState(false);
-  const [partError, setPartError] = useState("");
-  const [partSuccess, setPartSuccess] = useState("");
-  const [expandedTeamId, setExpandedTeamId] = useState(null);
 
   // State for volunteer requests
   const [volunteerRequests, setVolunteerRequests] = useState([]);
@@ -538,80 +528,6 @@ export default function AdminPanel() {
     }
   };
 
-  const addParticipants = async (ep) => {
-    setCurrentEpForParticipants(ep);
-    setShowParticipantModal(true);
-    setPartLoading(true);
-    setPartError("");
-    setPartSuccess("");
-    setSelectedAthleteId("");
-
-    try {
-      // 1. Charger les inscrits (Athlètes ou Équipes)
-      const resInscrits = await apiFetch(`/epreuves/${ep.id}/participants`);
-      setCurrentParticipants(resInscrits.data || []);
-
-      // 2. Charger les éligibles (Géré par le backend selon si l'épreuve est par équipe ou non)
-      const resEligibles = await apiFetch(`/epreuves/${ep.id}/participants/eligible`);
-      setEligibleAthletes(resEligibles.data || []);
-    } catch (err) {
-      console.error(err);
-      setPartError("Erreur lors du chargement des participants.");
-    } finally {
-      setPartLoading(false);
-    }
-  };
-
-  const submitAddParticipant = async () => {
-    if (!selectedAthleteId || !currentEpForParticipants) return;
-    setPartLoading(true);
-    setPartError("");
-    setPartSuccess("");
-
-    try {
-      // On détecte si on ajoute une équipe ou un athlète basé sur les données reçues
-      const isTeam = eligibleAthletes.some(a => a.id === selectedAthleteId && a.type === "EQUIPE");
-      const payload = isTeam ? { equipeId: selectedAthleteId } : { athleteId: selectedAthleteId };
-
-      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`, {
-        method: "POST",
-        data: payload
-      });
-
-      setPartSuccess(isTeam ? "Équipe ajoutée !" : "Athlète ajouté !");
-
-      // Recharger la liste
-      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`);
-      setCurrentParticipants(resInscrits.data || []);
-      setSelectedAthleteId("");
-    } catch (err) {
-      console.error(err);
-      setPartError(err.response?.data?.message || "Erreur lors de l'ajout.");
-    } finally {
-      setPartLoading(false);
-    }
-  };
-
-  const handleRemoveParticipant = async (params) => {
-    if (!window.confirm("Retirer ce participant de l'épreuve ?")) return;
-    setPartLoading(true);
-    setPartError("");
-    try {
-      const searchParams = new URLSearchParams(params).toString();
-      await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants?${searchParams}`, {
-        method: "DELETE"
-      });
-      setPartSuccess("Participant retiré !");
-      // Recharger la liste
-      const resInscrits = await apiFetch(`/epreuves/${currentEpForParticipants.id}/participants`);
-      setCurrentParticipants(resInscrits.data || []);
-    } catch (err) {
-      console.error("Erreur lors du retrait:", err);
-      setPartError(err.response?.data?.message || err.message || "Erreur lors du retrait.");
-    } finally {
-      setPartLoading(false);
-    }
-  };
 
   return (
     <div className="p-6">
@@ -932,12 +848,6 @@ export default function AdminPanel() {
                             className="text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded text-sm transition-colors"
                           >
                             Modifier
-                          </button>
-                          <button
-                            onClick={() => addParticipants(ep)}
-                            className="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm transition-colors"
-                          >
-                            Participants
                           </button>
                           <button
                             onClick={() => deleteEpreuve(ep.id)}
@@ -1410,151 +1320,6 @@ export default function AdminPanel() {
           }
         </section >
 
-        {/* MODAL PARTICIPANTS */}
-        {
-          showParticipantModal && currentEpForParticipants && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowParticipantModal(false)}></div>
-              <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">Gestion des participants</h3>
-                    <p className="text-sm text-gray-600">
-                      {currentEpForParticipants.nom} ({currentEpForParticipants.discipline})
-                    </p>
-                  </div>
-                  <button onClick={() => setShowParticipantModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light">&times;</button>
-                </div>
-
-                <div className="p-6 overflow-y-auto flex-1 space-y-6">
-                  {/* Ajouter un participant */}
-                  <section className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <h4 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3">Ajouter un athlète</h4>
-                    <div className="flex gap-2">
-                      <select
-                        className="flex-1 border rounded-lg px-3 py-2 bg-white"
-                        value={selectedAthleteId}
-                        onChange={(e) => setSelectedAthleteId(e.target.value)}
-                        disabled={partLoading || eligibleAthletes.length === 0}
-                      >
-                        <option value="">-- Sélectionner un athlète éligible --</option>
-                        {eligibleAthletes.map(a => (
-                          <option key={a.id} value={a.id}>{a.prenom} {a.nom} ({a.nation})</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={submitAddParticipant}
-                        disabled={!selectedAthleteId || partLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                      >
-                        {partLoading ? "Ajout..." : "Ajouter"}
-                      </button>
-                    </div>
-                    {eligibleAthletes.length === 0 && !partLoading && (
-                      <p className="text-xs text-amber-700 mt-2 italic">
-                        Aucun athlète éligible trouvé pour cette discipline et ce genre ({currentEpForParticipants.genre}).
-                      </p>
-                    )}
-                    {partError && <p className="text-red-600 text-sm mt-2">{partError}</p>}
-                    {partSuccess && <p className="text-green-600 text-sm mt-2">{partSuccess}</p>}
-                  </section>
-
-                  {/* Liste actuelle */}
-                  <section>
-                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Participants inscrits</h4>
-                    {currentParticipants.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <p className="text-gray-500">Aucun participant pour le moment.</p>
-                      </div>
-                    ) : (() => {
-                      const hasTeams = currentParticipants.some(p => p.type === 'EQUIPE');
-                      const displayList = hasTeams
-                        ? currentParticipants.filter(p => p.type === 'EQUIPE')
-                        : currentParticipants;
-
-                      return (
-                        <div className="space-y-3">
-                          {displayList.map(p => (
-                            <div key={p.id + p.type} className="border rounded-lg overflow-hidden shadow-sm">
-                              <div
-                                className={`flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors cursor-pointer ${p.type === 'EQUIPE' ? 'font-bold text-blue-800' : 'font-medium text-gray-800'}`}
-                                onClick={() => {
-                                  if (p.type === 'EQUIPE') {
-                                    setExpandedTeamId(expandedTeamId === p.id ? null : p.id);
-                                  }
-                                }}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {p.type === 'EQUIPE' ? '👥' : '👤'}
-                                  <span>{p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`} ({p.nation})</span>
-                                </div>
-                                {p.type === 'EQUIPE' && (
-                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                                    {expandedTeamId === p.id ? "Masquer membres" : "Voir membres"}
-                                  </span>
-                                )}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveParticipant(p.type === 'EQUIPE' ? { equipeId: p.id } : { athleteId: p.id });
-                                  }}
-                                  className="text-red-500 hover:text-red-700 p-1 font-bold text-lg"
-                                  title="Retirer de l'épreuve"
-                                >
-                                  &times;
-                                </button>
-                              </div>
-
-                              {p.type === 'EQUIPE' && expandedTeamId === p.id && (
-                                <div className="bg-gray-50 border-t p-3 text-sm space-y-2">
-                                  <p className="text-xs text-gray-500 font-bold uppercase mb-2">Membres inscrits pour cette épreuve :</p>
-                                  {(() => {
-                                    // On filtre les membres de l'équipe qui sont AUSSI dans currentParticipants comme ATHLETE
-                                    const registeredMembers = p.membres.filter(m =>
-                                      currentParticipants.some(cp => cp.type === 'ATHLETE' && cp.id === m.id)
-                                    );
-
-                                    return registeredMembers.length > 0 ? (
-                                      <ul className="space-y-1">
-                                        {registeredMembers.map(m => (
-                                          <li key={m.id} className="bg-white p-2 rounded border border-gray-100 flex justify-between items-center group">
-                                            <span>{m.prenom} {m.nom}</span>
-                                            <button
-                                              onClick={() => handleRemoveParticipant({ athleteId: m.id })}
-                                              className="text-amber-600 hover:text-amber-800 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                                              title="Retirer cet athlète (blessure, etc.)"
-                                            >
-                                              Retirer (blessé ?)
-                                            </button>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <p className="text-gray-400 italic">Aucun membre n'est actuellement inscrit comme participant individuel.</p>
-                                    );
-                                  })()}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </section>
-                </div>
-
-                <div className="p-4 border-t bg-gray-50 flex justify-end">
-                  <button
-                    onClick={() => setShowParticipantModal(false)}
-                    className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
-                  >
-                    Fermer
-                  </button>
-                </div>
-              </div>
-            </div>
-          )
-        }
       </div >
     </div >
   );
