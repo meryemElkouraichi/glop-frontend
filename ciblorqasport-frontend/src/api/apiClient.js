@@ -5,6 +5,11 @@ export const apiClient = axios.create({
   timeout: 7000,
 });
 
+export const getWsUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiUrl.replace('/api', '/ws');
+};
+
 // Helper générique
 export async function apiFetch(path, opts = {}) {
   const isFormData = opts.body instanceof FormData || opts.data instanceof FormData;

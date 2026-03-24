@@ -8,7 +8,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { apiFetch } from "../api/apiClient";
+import { apiFetch, getWsUrl } from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
@@ -86,7 +86,7 @@ export default function MapView() {
             };
             fetchInitialAthletes();
 
-            const socket = new SockJS("http://localhost:8080/ws");
+            const socket = new SockJS(getWsUrl());
             const client = Stomp.over(socket);
             client.debug = () => { }; // Disable noisy debug logs
 
