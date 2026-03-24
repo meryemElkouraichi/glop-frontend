@@ -789,7 +789,7 @@ export default function AdminPanel() {
                           <option key={l.id} value={l.id}>{l.nom} ({l.ville}, {l.pays})</option>
                         ))}
                     </select>
-                    {!epCompetition && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
+                    {!epCompetition && !epSuccess && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
                   </div>
                 </div>
 
@@ -1115,7 +1115,7 @@ export default function AdminPanel() {
                             <option key={l.id} value={l.id}>{l.nom} ({l.ville}, {l.pays})</option>
                           ))}
                       </select>
-                      {!cerCompetition && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
+                      {!cerCompetition && !cerSuccess && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
                     </div>
                   </div>
                   <div>

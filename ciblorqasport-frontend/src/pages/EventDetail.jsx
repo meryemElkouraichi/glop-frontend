@@ -21,9 +21,23 @@ export default function EventDetail() {
   const [partError, setPartError] = useState("");
   const [partSuccess, setPartSuccess] = useState("");
   const [expandedTeams, setExpandedTeams] = useState({}); // Tracking which teams are expanded
+  const [lieuList, setLieuList] = useState([]);
+
+  // State pour le mode édition
+  const [isEditing, setIsEditing] = useState(false);
+  const [editNom, setEditNom] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editLieuId, setEditLieuId] = useState("");
+  const [editDiscipline, setEditDiscipline] = useState("");
+  const [editGenre, setEditGenre] = useState("");
+  const [editError, setEditError] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     loadEvent();
+    fetchLieux();
   }, [id]);
 
   useEffect(() => {
@@ -63,6 +77,61 @@ export default function EventDetail() {
     } catch (err) {
       console.error("Error loading eligible athletes:", err);
     }
+  };
+
+  const fetchLieux = async () => {
+    try {
+      const res = await apiFetch("/lieux");
+      setLieuList(res.data || []);
+    } catch (err) {
+      console.error("Error loading locations:", err);
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError("");
+    setEditLoading(true);
+
+    const epreuveData = {
+      typeObjet: "EPREUVE",
+      nom: editNom,
+      type: event.type || "Sport",
+      discipline: editDiscipline,
+      genre: editGenre,
+      dateDebut: editDate,
+      dateFin: editDate,
+      heureDebut: editStartTime,
+      heureFin: editEndTime,
+      lieu: editLieuId ? { id: editLieuId } : null,
+      parent: event.parent ? { id: event.parent.id, typeObjet: "COMPETITION" } : null,
+      status: event.status || "Planifié"
+    };
+
+    try {
+      await apiFetch(`/epreuves/${id}`, {
+        method: "PUT",
+        data: epreuveData
+      });
+      setIsEditing(false);
+      loadEvent();
+    } catch (err) {
+      console.error("Erreur modification:", err);
+      setEditError(err.response?.data?.message || "Erreur lors de la modification.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const startEditing = () => {
+    setEditNom(event.nom || "");
+    setEditDate(event.dateDebut || "");
+    setEditStartTime(event.heureDebut || "");
+    setEditEndTime(event.heureFin || "");
+    setEditLieuId(event.lieu?.id || "");
+    setEditDiscipline(event.discipline || "");
+    setEditGenre(event.genre || "");
+    setIsEditing(true);
   };
 
   const submitAddParticipant = async () => {
@@ -177,6 +246,16 @@ export default function EventDetail() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* Navigation Helper Top Left */}
+      <div className="mb-4">
+        <Link to="/events" className="group flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold text-xs transition-all w-fit">
+          <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
+            ←
+          </div>
+          Retour à la liste
+        </Link>
+      </div>
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
@@ -193,7 +272,15 @@ export default function EventDetail() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {isHabilite && event.typeObjet === "EPREUVE" && !isEditing && (
+            <button
+              onClick={startEditing}
+              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm"
+            >
+              Modifier
+            </button>
+          )}
           <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${event.status === 'TERMINE' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'
             }`}>
             {event.status}
@@ -205,32 +292,120 @@ export default function EventDetail() {
         {/* Main Content */}
         <div className="lg:col-span-8 space-y-8">
 
-          {/* Info Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Lieu / Pays</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">📍</span>
-                  <p className="font-bold text-slate-800">{event.lieu?.nom || event.lieuSpecifique || event.paysOrganisateur}</p>
-                </div>
+          {/* Info Card / Edit Form */}
+          {isEditing ? (
+            <div className="bg-white rounded-2xl shadow-lg border-2 border-blue-600/20 p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Modifier les informations</h3>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold text-xs uppercase"
+                >
+                  Annuler
+                </button>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Calendrier</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">📅</span>
-                  <p className="font-bold text-slate-800">{event.dateDebut}</p>
+
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Nom de l'épreuve</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+                      value={editNom}
+                      onChange={(e) => setEditNom(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Lieu</label>
+                    <select
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+                      value={editLieuId}
+                      onChange={(e) => setEditLieuId(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Choisir un lieu --</option>
+                      {lieuList.map(l => (
+                        <option key={l.id} value={l.id}>{l.nom} ({l.ville})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Horaires</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🕒</span>
-                  <p className="font-bold text-slate-800">{event.heureDebut} - {event.heureFin}</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Date</label>
+                    <input
+                      type="date"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Heure Début</label>
+                    <input
+                      type="time"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+                      value={editStartTime}
+                      onChange={(e) => setEditStartTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Heure Fin</label>
+                    <input
+                      type="time"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {editError && <p className="text-red-500 text-xs font-bold bg-red-50 p-3 rounded-xl">❌ {editError}</p>}
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={editLoading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {editLoading ? "Enregistrement..." : "Confirmer les modifications"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Lieu / Pays</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📍</span>
+                    <p className="font-bold text-slate-800">{event.lieu?.nom || event.lieuSpecifique || event.paysOrganisateur}</p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Calendrier</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📅</span>
+                    <p className="font-bold text-slate-800">{event.dateDebut}</p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Horaires</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🕒</span>
+                    <p className="font-bold text-slate-800">{event.heureDebut} - {event.heureFin}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Participants - COMMISSAIRE ONLY */}
           {event.typeObjet === "EPREUVE" && isCommissaire && (
@@ -450,16 +625,6 @@ export default function EventDetail() {
               </div>
             </div>
           )}
-
-          {/* Navigation Helper */}
-          <div className="p-4">
-            <Link to="/events" className="group flex items-center gap-3 text-slate-400 hover:text-slate-900 font-bold text-sm transition-all">
-              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
-                ←
-              </div>
-              Retour à la liste
-            </Link>
-          </div>
         </div>
       </div>
     </div>

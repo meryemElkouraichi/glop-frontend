@@ -169,6 +169,11 @@ export default function ResultatsEpreuve() {
     const isValide = resultats.length > 0 && resultats[0].statut === "VALIDE";
     const disc = (epreuve?.discipline || epreuve?.type || "").toLowerCase();
 
+    // Check authorization: Admin or Commissaire with correctly assigned discipline
+    const isAuthorized = user?.roles?.includes(ROLES.ADMIN) ||
+        (user?.roles?.includes(ROLES.COMMISSAIRE) &&
+            user?.disciplines?.some(d => d.toLowerCase() === epreuve?.discipline?.toLowerCase()));
+
     let inputLabel = "Temps (ex: 01:30.00)";
     let inputType = "text";
     if (disc.includes("water") || disc.includes("polo")) {
@@ -203,144 +208,158 @@ export default function ResultatsEpreuve() {
             {error && <div className="bg-red-50 text-red-600 p-4 rounded shadow-sm border border-red-200">{error}</div>}
             {successMsg && <div className="bg-green-50 text-green-700 p-4 rounded shadow-sm border border-green-200">{successMsg}</div>}
 
-            <div className="grid md:grid-cols-2 gap-8">
+            {/* Case 1: NOT AUTHORIZED and NO RESULTS */}
+            {!isAuthorized && resultats.length === 0 && (
+                <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 text-center flex flex-col items-center gap-4">
+                    <svg className="w-16 h-16 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    <p className="text-gray-500 italic text-lg font-medium">Il n'y a pas encore de résultat pour cette épreuve.</p>
+                </div>
+            )}
 
-                {/* Section de saisie */}
-                <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Saisie des Performances</h3>
-                    {participants.length === 0 ? (
-                        <p className="text-sm text-gray-500 italic">Aucun participant inscrit à cette épreuve.</p>
-                    ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                                {(() => {
-                                    const hasTeams = participants.some(p => p.type === 'EQUIPE');
-                                    const displayList = hasTeams
-                                        ? participants.filter(p => p.type === 'EQUIPE')
-                                        : participants;
+            {/* Case 2: AUTHORIZED (full access) or NOT AUTHORIZED with existing results (view only) */}
+            {(isAuthorized || (!isAuthorized && resultats.length > 0)) && (
+                <div className={isAuthorized ? "grid md:grid-cols-2 gap-8" : "max-w-3xl mx-auto"}>
 
-                                    return displayList.map(p => (
-                                        <div key={p.type + p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-                                            <div className="flex-1">
-                                                <div className="font-semibold text-gray-800">
-                                                    {p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`}
-                                                </div>
-                                                <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
-                                            </div>
-                                            <div className="w-full sm:w-1/3">
-                                                <input
-                                                    type={inputType}
-                                                    step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
-                                                    placeholder={inputLabel}
-                                                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
-                                                    value={inputs[p.id]?.value || ""}
-                                                    onChange={(e) => handleInputChange(p.id, e.target.value)}
-                                                    disabled={isValide}
-                                                />
-                                            </div>
-                                        </div>
-                                    ));
-                                })()}
-                            </div>
+                    {/* Section de saisie - visible ONLY if authorized */}
+                    {isAuthorized && (
+                        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Saisie des Performances</h3>
+                            {participants.length === 0 ? (
+                                <p className="text-sm text-gray-500 italic">Aucun participant inscrit à cette épreuve.</p>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                                        {(() => {
+                                            const hasTeams = participants.some(p => p.type === 'EQUIPE');
+                                            const displayList = hasTeams
+                                                ? participants.filter(p => p.type === 'EQUIPE')
+                                                : participants;
 
-                            {!isValide && participants.length > 0 && (
-                                <div className="pt-4 border-t border-gray-100">
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-colors flex justify-center items-center gap-2"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                                        Calculer le Classement
-                                    </button>
-                                </div>
-                            )}
-                        </form>
-                    )}
-                </section>
-
-                {/* Section de classement */}
-                <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2 flex justify-between items-center">
-                        Classement
-                        {resultats.length > 0 && (
-                            <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">Basé sur {disc}</span>
-                        )}
-                    </h3>
-
-                    {resultats.length === 0 ? (
-                        <div className="text-center py-12">
-                            <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                            </svg>
-                            <p className="mt-2 text-sm text-gray-500 italic">Aucun résultat soumis pour le moment. Renseignez les performances à gauche.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div className="overflow-hidden rounded-lg border border-gray-200">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Rang</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                {participants.some(p => p.type === 'EQUIPE') ? "Équipe" : "Athlète"}
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Perf.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {resultats.map((res, idx) => (
-                                            <tr key={res.id} className={idx < 3 ? "bg-amber-50/30" : ""}>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full font-bold text-sm
-                                                    ${res.rang === 1 ? "bg-yellow-400 text-yellow-900 shadow-sm" :
-                                                                res.rang === 2 ? "bg-gray-300 text-gray-800 shadow-sm" :
-                                                                    res.rang === 3 ? "bg-amber-600 text-amber-50 shadow-sm" :
-                                                                        "bg-gray-100 text-gray-600"}`}>
-                                                            {res.rang}
-                                                        </span>
+                                            return displayList.map(p => (
+                                                <div key={p.type + p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+                                                    <div className="flex-1">
+                                                        <div className="font-semibold text-gray-800">
+                                                            {p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {res.athlete ? (
-                                                        <>
-                                                            <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
-                                                            <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="text-sm font-medium text-gray-900">{res.equipe?.nom}</div>
-                                                            <div className="text-xs text-gray-500">{res.equipe?.nation}</div>
-                                                        </>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-medium text-gray-900">
-                                                    {res.tempsSecondes != null && formatSecondsToTime(res.tempsSecondes)}
-                                                    {res.score != null && `${res.score} buts`}
-                                                    {res.points != null && `${res.points} pts`}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                    <div className="w-full sm:w-1/3">
+                                                        <input
+                                                            type={inputType}
+                                                            step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
+                                                            placeholder={inputLabel}
+                                                            className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
+                                                            value={inputs[p.id]?.value || ""}
+                                                            onChange={(e) => handleInputChange(p.id, e.target.value)}
+                                                            disabled={isValide}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
 
-                            {!isValide && user?.roles?.includes(ROLES.COMMISSAIRE) && (
-                                <div className="pt-4 flex justify-end">
-                                    <button
-                                        onClick={handleValidate}
-                                        className="bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                        Valider Définitivement
-                                    </button>
-                                </div>
+                                    {!isValide && participants.length > 0 && (
+                                        <div className="pt-4 border-t border-gray-100">
+                                            <button
+                                                type="submit"
+                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-colors flex justify-center items-center gap-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                                Calculer le Classement
+                                            </button>
+                                        </div>
+                                    )}
+                                </form>
                             )}
-                        </div>
+                        </section>
                     )}
-                </section>
 
-            </div>
+                    {/* Section de classement - Always visible if RESULTS EXIST */}
+                    <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
+                        <h3 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2 flex justify-between items-center">
+                            Classement
+                            {resultats.length > 0 && (
+                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">Basé sur {disc}</span>
+                            )}
+                        </h3>
+
+                        {resultats.length === 0 ? (
+                            <div className="text-center py-12">
+                                <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                </svg>
+                                <p className="mt-2 text-sm text-gray-500 italic">Aucun résultat soumis pour le moment. {isAuthorized ? "Renseignez les performances à gauche." : ""}</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="overflow-hidden rounded-lg border border-gray-200">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Rang</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    {participants.some(p => p.type === 'EQUIPE') ? "Équipe" : "Athlète"}
+                                                </th>
+                                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Perf.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {resultats.map((res, idx) => (
+                                                <tr key={res.id} className={idx < 3 ? "bg-amber-50/30" : ""}>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full font-bold text-sm
+                                                        ${res.rang === 1 ? "bg-yellow-400 text-yellow-900 shadow-sm" :
+                                                                    res.rang === 2 ? "bg-gray-300 text-gray-800 shadow-sm" :
+                                                                        res.rang === 3 ? "bg-amber-600 text-amber-50 shadow-sm" :
+                                                                            "bg-gray-100 text-gray-600"}`}>
+                                                                {res.rang}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {res.athlete ? (
+                                                            <>
+                                                                <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
+                                                                <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="text-sm font-medium text-gray-900">{res.equipe?.nom}</div>
+                                                                <div className="text-xs text-gray-500">{res.equipe?.nation}</div>
+                                                            </>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-medium text-gray-900">
+                                                        {res.tempsSecondes != null && formatSecondsToTime(res.tempsSecondes)}
+                                                        {res.score != null && `${res.score} buts`}
+                                                        {res.points != null && `${res.points} pts`}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {!isValide && isAuthorized && (
+                                    <div className="pt-4 flex justify-end">
+                                        <button
+                                            onClick={handleValidate}
+                                            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            Valider Définitivement
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </section>
+                </div>
+            )}
         </div>
     );
 }
