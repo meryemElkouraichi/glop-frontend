@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { apiFetch } from "../../api/apiClient";
-import { trackAction } from "../../api/useAnalytics";
 
 export default function CommissaireRequests({ onlyPending = true }) {
   const { user } = useAuth();
@@ -9,10 +8,6 @@ export default function CommissaireRequests({ onlyPending = true }) {
   const [viewMode, setViewMode] = useState(onlyPending ? "pending" : "all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    trackAction(`Commissaire - Onglet Demandes: ${viewMode}`);
-  }, [viewMode]);
 
   const fetchRequests = async () => {
     if (!user?.id) return;

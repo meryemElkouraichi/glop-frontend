@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { apiFetch } from "../../api/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { ROLES } from "../../constants/roles";
-import { trackAction } from "../../api/useAnalytics";
 
 export default function AdminPanel() {
   const { user } = useAuth();
@@ -15,7 +14,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     localStorage.setItem("adminPanelTab", tab);
-    trackAction(`AdminPanel - Onglet: ${tab}`);
   }, [tab]);
 
 
