@@ -2,6 +2,7 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useAnalytics } from "../api/useAnalytics";
 
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -30,6 +31,7 @@ import { ROLES } from "../constants/roles";
 
 export default function MainLayout() {
   const { user } = useAuth();
+  useAnalytics(); // Activation du module Analytics (Vues + Temps de connexion)
 
   const allRoles = [
     ROLES.SPECTATEUR,
