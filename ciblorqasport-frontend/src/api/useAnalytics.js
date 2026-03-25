@@ -2,19 +2,36 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { apiFetch } from "./apiClient";
 
+/**
+ * Fonction générique pour tracker n'importe quelle action précise (clic sur un onglet, bouton...)
+ */
+export const trackAction = async (donneeConsultee) => {
+    try {
+        await apiFetch("/tracking/activity", {
+            method: "POST",
+            data: {
+                typeAction: "VUE_RUBRIQUE",
+                donneeConsultee: donneeConsultee,
+            },
+        });
+    } catch (e) {
+        console.error("Erreur Analytics VUE_RUBRIQUE", e);
+    }
+};
+
 export function useAnalytics() {
     const location = useLocation();
 
     useEffect(() => {
-        // 1. Envoyer un événement "VUE" à chaque changement de page
+        // 1. Envoyer un événement de navigation global (URL)
         const trackPageView = async () => {
             try {
                 await apiFetch("/tracking/activity", {
                     method: "POST",
                     data: {
                         typeAction: "VUE_PAGE",
-                        donneeConsultee: location.pathname
-                    }
+                        donneeConsultee: location.pathname,
+                    },
                 });
             } catch (e) {
                 console.error("Erreur Analytics VUE_PAGE", e);
@@ -22,23 +39,4 @@ export function useAnalytics() {
         };
         trackPageView();
     }, [location.pathname]);
-
-    useEffect(() => {
-        // 2. Envoyer un "HEARTBEAT" toutes les 60 secondes pour mesurer le temps passé
-        const intervalId = setInterval(async () => {
-            try {
-                await apiFetch("/tracking/activity", {
-                    method: "POST",
-                    data: {
-                        typeAction: "HEARTBEAT",
-                        donneeConsultee: "Temps"
-                    }
-                });
-            } catch (e) {
-                console.error("Erreur Analytics HEARTBEAT", e);
-            }
-        }, 60000); // 60 secondes
-
-        return () => clearInterval(intervalId); // Nettoyage lors de la fermeture
-    }, []);
 }
