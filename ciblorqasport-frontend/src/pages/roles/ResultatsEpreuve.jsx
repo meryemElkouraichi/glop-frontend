@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { apiFetch } from "../../api/apiClient";
 import { ROLES } from "../../constants/roles";
@@ -49,7 +49,7 @@ export default function ResultatsEpreuve() {
                     if (res.tempsSecondes != null) val = formatSecondsToTime(res.tempsSecondes);
                     if (res.score != null) val = res.score.toString();
                     if (res.points != null) val = res.points.toString();
-                    initialInputs[pId] = { value: val };
+                    initialInputs[pId] = { value: val, matchId: res.matchId };
                 }
             });
             setInputs(initialInputs);
@@ -88,10 +88,10 @@ export default function ResultatsEpreuve() {
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(5, '0')}`;
     };
 
-    const handleInputChange = (athleteId, value) => {
+    const handleInputChange = (pId, value, matchId) => {
         setInputs(prev => ({
             ...prev,
-            [athleteId]: { value }
+            [pId]: { ...prev[pId], value, matchId }
         }));
     };
 
@@ -100,19 +100,37 @@ export default function ResultatsEpreuve() {
         setError(null);
         setSuccessMsg("");
 
+        // Validation for ties in tournament matches
+        const matches = {};
+        Object.keys(inputs).forEach(pId => {
+            const mId = inputs[pId].matchId;
+            if (mId) {
+                if (!matches[mId]) matches[mId] = [];
+                matches[mId].push(inputs[pId].value);
+            }
+        });
+
+        for (const mId in matches) {
+            if (matches[mId].length === 2) {
+                if (matches[mId][0] === matches[mId][1] && matches[mId][0] !== "") {
+                    setError("Les matchs nuls ne sont pas autorisés dans un tournoi éliminatoire. Veuillez départager les équipes.");
+                    return;
+                }
+            }
+        }
+
         // Prepare payload
-        // Filter out empty inputs
         const payload = Object.keys(inputs)
-            .filter(athleteId => inputs[athleteId].value && inputs[athleteId].value.trim() !== "")
+            .filter(pId => inputs[pId].value && inputs[pId].value.trim() !== "")
             .map(pId => {
                 const val = inputs[pId].value;
+                const matchId = inputs[pId].matchId;
                 const participant = participants.find(p => p.id === pId);
                 const isTeam = participant?.type === "EQUIPE";
 
                 const result = isTeam ? { equipeId: pId } : { athleteId: pId };
+                result.matchId = matchId;
 
-                // Determine input type based on Epreuve discipline (simplified logic)
-                // Adjust these keywords based on your actual database data
                 const disc = (epreuve?.discipline || epreuve?.type || "").toLowerCase();
 
                 if (disc.includes("water") || disc.includes("polo")) {
@@ -120,7 +138,6 @@ export default function ResultatsEpreuve() {
                 } else if (disc.includes("plongeon") || disc.includes("artistique")) {
                     result.points = parseFloat(val);
                 } else {
-                    // Default to time for swimming races, relays, etc.
                     result.tempsSecondes = parseTimeToSeconds(val);
                 }
 
@@ -190,10 +207,33 @@ export default function ResultatsEpreuve() {
                 <Link to={`/events/${id}`} className="text-gray-500 hover:text-gray-700">← Retour</Link>
                 <h2 className="text-2xl font-bold flex-1">Gestion des Résultats : {epreuve.nom}</h2>
                 {isValide ? (
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-semibold uppercase text-sm border border-green-200 shadow-sm flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                        Résultats Validés
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-semibold uppercase text-sm border border-green-200 shadow-sm flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            Résultats Validés
+                        </span>
+                        {isAuthorized && epreuve.phase && epreuve.phase !== "FINALE" && epreuve.phase !== "UNIQUE" && (
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm("Voulez-vous générer la phase suivante de ce tournoi ?")) {
+                                        try {
+                                            await apiFetch(`/epreuves/${id}/prochain-tour`, { method: "POST" });
+                                            setSuccessMsg("Phase suivante générée avec succès ! Redirection vers l'Admin Panel...");
+                                            setTimeout(() => {
+                                                window.location.href = "/admin";
+                                            }, 2000);
+                                        } catch (err) {
+                                            setError("Erreur : " + (err.response?.data?.message || err.response?.data || "Impossible de générer le tour suivant."));
+                                        }
+                                    }
+                                }}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                                Générer la phase suivante
+                            </button>
+                        )}
+                    </div>
                 ) : resultats.length > 0 ? (
                     <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-semibold uppercase text-sm border border-yellow-200">
                         Classement Proposé
@@ -237,24 +277,43 @@ export default function ResultatsEpreuve() {
                                                 ? participants.filter(p => p.type === 'EQUIPE')
                                                 : participants;
 
-                                            return displayList.map(p => (
-                                                <div key={p.type + p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-                                                    <div className="flex-1">
-                                                        <div className="font-semibold text-gray-800">
-                                                            {p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
-                                                    </div>
-                                                    <div className="w-full sm:w-1/3">
-                                                        <input
-                                                            type={inputType}
-                                                            step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
-                                                            placeholder={inputLabel}
-                                                            className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
-                                                            value={inputs[p.id]?.value || ""}
-                                                            onChange={(e) => handleInputChange(p.id, e.target.value)}
-                                                            disabled={isValide}
-                                                        />
+                                            // Group by Match if available
+                                            const matches = {};
+                                            displayList.forEach(p => {
+                                                const mId = inputs[p.id]?.matchId || "no-match";
+                                                if (!matches[mId]) matches[mId] = [];
+                                                matches[mId].push(p);
+                                            });
+
+                                            return Object.keys(matches).map((mId, matchIdx) => (
+                                                <div key={mId} className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                                    {mId !== "no-match" && (
+                                                        <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+                                                            <span className="bg-purple-100 px-2 py-0.5 rounded">Match {matchIdx + 1}</span>
+                                                        </h4>
+                                                    )}
+                                                    <div className="space-y-3">
+                                                        {matches[mId].map(p => (
+                                                            <div key={p.type + p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+                                                                <div className="flex-1">
+                                                                    <div className="font-semibold text-gray-800">
+                                                                        {p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`}
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
+                                                                </div>
+                                                                <div className="w-full sm:w-1/3 text-right">
+                                                                    <input
+                                                                        type={inputType}
+                                                                        step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
+                                                                        placeholder={inputLabel}
+                                                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
+                                                                        value={inputs[p.id]?.value || ""}
+                                                                        onChange={(e) => handleInputChange(p.id, e.target.value, mId !== "no-match" ? mId : null)}
+                                                                        disabled={isValide}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 </div>
                                             ));
@@ -307,39 +366,59 @@ export default function ResultatsEpreuve() {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
-                                            {resultats.map((res, idx) => (
-                                                <tr key={res.id} className={idx < 3 ? "bg-amber-50/30" : ""}>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full font-bold text-sm
-                                                        ${res.rang === 1 ? "bg-yellow-400 text-yellow-900 shadow-sm" :
-                                                                    res.rang === 2 ? "bg-gray-300 text-gray-800 shadow-sm" :
-                                                                        res.rang === 3 ? "bg-amber-600 text-amber-50 shadow-sm" :
-                                                                            "bg-gray-100 text-gray-600"}`}>
-                                                                {res.rang}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        {res.athlete ? (
-                                                            <>
-                                                                <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
-                                                                <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <div className="text-sm font-medium text-gray-900">{res.equipe?.nom}</div>
-                                                                <div className="text-xs text-gray-500">{res.equipe?.nation}</div>
-                                                            </>
+                                            {(() => {
+                                                const resByMatch = {};
+                                                resultats.forEach(r => {
+                                                    const mId = r.matchId || "global";
+                                                    if (!resByMatch[mId]) resByMatch[mId] = [];
+                                                    resByMatch[mId].push(r);
+                                                });
+
+                                                return Object.keys(resByMatch).map((mId, mIdx) => (
+                                                    <React.Fragment key={mId}>
+                                                        {mId !== "global" && (
+                                                            <tr className="bg-gray-50/10">
+                                                                <td colSpan="3" className="px-6 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50">
+                                                                    Match {mIdx + 1}
+                                                                </td>
+                                                            </tr>
                                                         )}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-medium text-gray-900">
-                                                        {res.tempsSecondes != null && formatSecondsToTime(res.tempsSecondes)}
-                                                        {res.score != null && `${res.score} buts`}
-                                                        {res.points != null && `${res.points} pts`}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                        {resByMatch[mId].map((res) => (
+                                                            <tr key={res.id} className={res.rang === 1 ? "bg-green-50/30" : ""}>
+                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                    <div className="flex items-center">
+                                                                        <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full font-bold text-sm
+                                                                    ${res.rang === 1 ? "bg-yellow-400 text-yellow-900 shadow-sm" :
+                                                                                res.rang === 2 ? "bg-gray-300 text-gray-800 shadow-sm" :
+                                                                                    res.rang === 3 ? "bg-amber-600 text-amber-50 shadow-sm" :
+                                                                                        "bg-gray-100 text-gray-600"}`}>
+                                                                            {res.rang}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                    {res.athlete ? (
+                                                                        <>
+                                                                            <div className="text-sm font-medium text-gray-900">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</div>
+                                                                            <div className="text-xs text-gray-500">{res.athlete?.nation}</div>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <div className="text-sm font-medium text-gray-900">{res.equipe?.nom}</div>
+                                                                            <div className="text-xs text-gray-500">{res.equipe?.nation}</div>
+                                                                        </>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-medium text-gray-900">
+                                                                    {res.tempsSecondes != null && formatSecondsToTime(res.tempsSecondes)}
+                                                                    {res.score != null && `${res.score} buts`}
+                                                                    {res.points != null && `${res.points} pts`}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </React.Fragment>
+                                                ));
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { apiFetch } from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
@@ -538,28 +538,57 @@ export default function EventDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {resultats.map((res, idx) => (
-                      <tr key={res.id} className={`${idx < 3 ? 'bg-slate-50/30' : ''} hover:bg-slate-50/50 transition-colors`}>
-                        <td className="px-8 py-5">
-                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-black shadow-sm ${res.rang === 1 ? 'bg-yellow-400 text-yellow-900 ring-4 ring-yellow-400/20' :
-                            res.rang === 2 ? 'bg-slate-300 text-slate-700 ring-4 ring-slate-300/20' :
-                              res.rang === 3 ? 'bg-amber-600 text-white ring-4 ring-amber-600/20' :
-                                'bg-slate-100 text-slate-500'
-                            }`}>
-                            {res.rang}
-                          </span>
-                        </td>
-                        <td className="px-8 py-5">
-                          <p className="font-bold text-slate-800">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{res.athlete?.nation}</p>
-                        </td>
-                        <td className="px-8 py-5 text-right font-mono font-black text-slate-900">
-                          {res.tempsSecondes != null ? formatSecondsToTime(res.tempsSecondes) :
-                            res.score != null ? `${res.score} BUTS` :
-                              res.points != null ? `${res.points} PTS` : "-"}
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const resByMatch = {};
+                      resultats.forEach(r => {
+                        const mId = r.matchId || "global";
+                        if (!resByMatch[mId]) resByMatch[mId] = [];
+                        resByMatch[mId].push(r);
+                      });
+
+                      return Object.keys(resByMatch).map((mId, mIdx) => (
+                        <React.Fragment key={mId}>
+                          {mId !== "global" && (
+                            <tr className="bg-slate-100/50">
+                              <td colSpan="3" className="px-8 py-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] bg-slate-50/80">
+                                Match {mIdx + 1}
+                              </td>
+                            </tr>
+                          )}
+                          {resByMatch[mId].map((res, idx) => (
+                            <tr key={res.id} className={`${res.rang === 1 ? 'bg-green-50/30' : ''} hover:bg-slate-50/50 transition-colors`}>
+                              <td className="px-8 py-5">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-black shadow-sm ${res.rang === 1 ? 'bg-yellow-400 text-yellow-900 ring-4 ring-yellow-400/20' :
+                                  res.rang === 2 ? 'bg-slate-300 text-slate-700 ring-4 ring-slate-300/20' :
+                                    res.rang === 3 ? 'bg-amber-600 text-white ring-4 ring-amber-600/20' :
+                                      'bg-slate-100 text-slate-500'
+                                  }`}>
+                                  {res.rang}
+                                </span>
+                              </td>
+                              <td className="px-8 py-5">
+                                {res.athlete ? (
+                                  <>
+                                    <p className="font-bold text-slate-800">{res.athlete?.user?.prenom} {res.athlete?.user?.nom}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{res.athlete?.nation}</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="font-bold text-slate-800">{res.equipe?.nom}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{res.equipe?.nation}</p>
+                                  </>
+                                )}
+                              </td>
+                              <td className="px-8 py-5 text-right font-mono font-black text-slate-900">
+                                {res.tempsSecondes != null ? formatSecondsToTime(res.tempsSecondes) :
+                                  res.score != null ? `${res.score} BUTS` :
+                                    res.points != null ? `${res.points} PTS` : "-"}
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>

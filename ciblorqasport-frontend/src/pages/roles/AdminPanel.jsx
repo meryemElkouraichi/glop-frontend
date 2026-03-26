@@ -40,6 +40,10 @@ export default function AdminPanel() {
   const [epErrors, setEpErrors] = useState([]);
   const [epSuccess, setEpSuccess] = useState("");
   const [editingEpId, setEditingEpId] = useState(null);
+  const [epPhase, setEpPhase] = useState("UNIQUE");
+  const [isEpEliminatoire, setIsEpEliminatoire] = useState(false);
+  const [eligibleParticipants, setEligibleParticipants] = useState([]);
+  const [selectedParticipants, setSelectedParticipants] = useState(Array(8).fill(""));
 
   // Cérémonie form state
   const [cerName, setCerName] = useState("");
@@ -283,6 +287,31 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
+    if (epDiscipline && epGenre) {
+      // Check if sport is eliminatoire
+      apiFetch(`/sports/is-eliminatoire?discipline=${encodeURIComponent(epDiscipline)}`)
+        .then(r => setIsEpEliminatoire(r.data))
+        .catch(() => setIsEpEliminatoire(false));
+
+      // Fetch eligible participants
+      // Determine if team or individual (can check epDiscipline if wanted, or just try both)
+      // Actually, my new endpoints handle this. 
+      // I'll check the sport category first or just fetch teams if it's "equipe" in the name or from a sport object.
+      // For now, let's try to fetch both and the backend logic already knows? 
+      // No, I have two endpoints.
+      const isTeamSport = epDiscipline.toLowerCase().includes("water polo") || epDiscipline.toLowerCase().includes("relais") || epDiscipline.toLowerCase().includes("artistique");
+      const endpoint = isTeamSport ? "/sports/eligible-equipes" : "/sports/eligible-athletes";
+
+      apiFetch(`${endpoint}?discipline=${encodeURIComponent(epDiscipline)}&genre=${encodeURIComponent(epGenre)}`)
+        .then(r => setEligibleParticipants(r.data || []))
+        .catch(() => setEligibleParticipants([]));
+    } else {
+      setIsEpEliminatoire(false);
+      setEligibleParticipants([]);
+    }
+  }, [epDiscipline, epGenre]);
+
+  useEffect(() => {
     loadIncidents();
     loadCompetitions();
     loadSports();
@@ -415,6 +444,17 @@ export default function AdminPanel() {
     }
     if (!epLieuId) e.push("Le lieu est requis.");
 
+    if (isEpEliminatoire && epPhase === "QUART") {
+      const validParticipants = selectedParticipants.filter(id => id !== "");
+      if (validParticipants.length < 8) {
+        e.push("Vous devez sélectionner exactement 8 participants pour les Quarts de finale.");
+      }
+      const uniqueParticipants = new Set(validParticipants);
+      if (uniqueParticipants.size < validParticipants.length) {
+        e.push("Un même participant ne peut pas être sélectionné plusieurs fois.");
+      }
+    }
+
     // Check if the epreuve date makes sense relative to today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -448,7 +488,9 @@ export default function AdminPanel() {
       heureFin: epEndTime,
       lieu: epLieuId ? { id: epLieuId } : null,
       parent: epCompetition ? { id: epCompetition, typeObjet: "COMPETITION" } : null,
-      status: editingEpId ? "Planifié" : "Planifié" // Keeping existing status logic simplified for now
+      status: "Planifié",
+      phase: epPhase,
+      participantIds: isEpEliminatoire ? selectedParticipants.filter(id => id !== "") : []
     };
 
     try {
@@ -465,6 +507,7 @@ export default function AdminPanel() {
       }
       setEpSuccess(editingEpId ? "Épreuve mise à jour !" : "Épreuve créée avec succès !");
       setEpName(""); setEpCompetition(""); setEpDate(""); setEpStartTime(""); setEpEndTime(""); setEpDiscipline(""); setEpGenre(""); setEpLieuId("");
+      setEpPhase("UNIQUE"); setSelectedParticipants(Array(8).fill(""));
       setEditingEpId(null);
       loadEpreuves();
     } catch (error) {
@@ -782,8 +825,16 @@ export default function AdminPanel() {
                       {lieuList
                         .filter(l => {
                           if (!epCompetition) return true;
-                          const comp = competitions.find(c => c.id === epCompetition);
-                          return comp ? l.pays === comp.paysOrganisateur : true;
+                          const comp = competitions.find(c => (c.id === epCompetition || c.evenement_id === epCompetition));
+                          if (!comp) return true; // Show all if competition not found in list (fallback)
+
+                          const lPays = (l.pays || "").trim().toLowerCase();
+                          const cPays = (comp.paysOrganisateur || "").trim().toLowerCase();
+
+                          // Fallback: if no country defined on either, show it
+                          if (!lPays || !cPays) return true;
+
+                          return lPays === cPays;
                         })
                         .map((l) => (
                           <option key={l.id} value={l.id}>{l.nom} ({l.ville}, {l.pays})</option>
@@ -792,6 +843,59 @@ export default function AdminPanel() {
                     {!epCompetition && !epSuccess && <p className="text-[10px] text-orange-600 mt-1">Sélectionnez d'abord une compétition.</p>}
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-sm">Phase du tournoi</label>
+                    <select
+                      value={epPhase}
+                      onChange={(e) => setEpPhase(e.target.value)}
+                      className="mt-1 block w-full border rounded p-2"
+                      disabled={!isEpEliminatoire && epPhase === "UNIQUE"}
+                    >
+                      <option value="UNIQUE">Épreuve Unique / Finale</option>
+                      {isEpEliminatoire && (
+                        <>
+                          <option value="QUART">Quarts de finale (1/4)</option>
+                          <option value="DEMI">Demi-finales (1/2)</option>
+                          <option value="FINALE">Finale</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {isEpEliminatoire && epPhase === "QUART" && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
+                    <h5 className="text-sm font-semibold mb-3 text-blue-800">Sélection des 8 participants pour les Quarts</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedParticipants.map((pId, idx) => (
+                        <div key={idx}>
+                          <label className="block text-xs text-gray-600">Participant {idx + 1}</label>
+                          <select
+                            value={pId}
+                            onChange={(e) => {
+                              const newP = [...selectedParticipants];
+                              newP[idx] = e.target.value;
+                              setSelectedParticipants(newP);
+                            }}
+                            className="mt-1 block w-full border rounded p-1 text-sm bg-white"
+                          >
+                            <option value="">-- Choisir --</option>
+                            {eligibleParticipants
+                              .filter(p => !selectedParticipants.includes(p.id) || p.id === pId)
+                              .map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nom || (p.user ? `${p.user.prenom} ${p.user.nom}` : "Sans nom")} ({p.nation || p.pays || "N/A"})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-blue-600 mt-2 italic">Note: Le tirage au sort des matchs sera fait aléatoirement à la création.</p>
+                  </div>
+                )}
 
                 {epErrors.length > 0 && <div className="text-red-600">{epErrors.map((err, i) => <div key={i}>{err}</div>)}</div>}
                 {epSuccess && <div className="text-green-600">{epSuccess}</div>}
@@ -1070,19 +1174,6 @@ export default function AdminPanel() {
                     <label className="block text-sm">Nom de la cérémonie</label>
                     <input value={cerName} onChange={(e) => setCerName(e.target.value)} className="mt-1 block w-full border rounded p-2" />
                   </div>
-                  <div>
-                    <label className="block text-sm">Compétition associée (Optionnel)</label>
-                    <select
-                      value={cerCompetition}
-                      onChange={(e) => setCerCompetition(e.target.value)}
-                      className="mt-1 block w-full border rounded p-2"
-                    >
-                      <option value="">-- Sans compétition --</option>
-                      {competitions.map(c => (
-                        <option key={c.id} value={c.id}>{c.nom}</option>
-                      ))}
-                    </select>
-                  </div>
                   <div className="grid grid-cols-4 gap-3">
                     <div>
                       <label className="block text-sm">Date</label>
@@ -1108,8 +1199,14 @@ export default function AdminPanel() {
                         {lieuList
                           .filter(l => {
                             if (!cerCompetition) return true;
-                            const comp = competitions.find(c => c.id === cerCompetition);
-                            return comp ? l.pays === comp.paysOrganisateur : true;
+                            const comp = competitions.find(c => (c.id === cerCompetition || c.evenement_id === cerCompetition));
+                            if (!comp) return true;
+
+                            const lPays = (l.pays || "").trim().toLowerCase();
+                            const cPays = (comp.paysOrganisateur || "").trim().toLowerCase();
+
+                            if (!lPays || !cPays) return true;
+                            return lPays === cPays;
                           })
                           .map((l) => (
                             <option key={l.id} value={l.id}>{l.nom} ({l.ville}, {l.pays})</option>
