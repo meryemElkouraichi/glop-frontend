@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ROLES } from "../constants/roles";
+import { trackAction } from "../api/useAnalytics";
 
 const NAV_ITEMS = [
     { label: "Accueil", path: "/home", icon: "🏠", roles: null },
@@ -42,7 +43,10 @@ export default function Sidebar() {
     const renderLink = (item) => (
         <button
             key={item.path}
-            onClick={() => navigate(item.path)}
+            onClick={() => {
+                trackAction(item.label); // Enregistre la rubrique consultée
+                navigate(item.path);
+            }}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive(item.path)
                 ? "bg-primary text-white shadow-lg shadow-primary/30"
                 : "text-slate-400 hover:bg-white/10 hover:text-white"
@@ -52,6 +56,7 @@ export default function Sidebar() {
             <span className="font-medium">{item.label}</span>
         </button>
     );
+
 
     return (
         <aside className="w-64 fixed inset-y-0 left-0 glass-sidebar flex flex-col z-50">

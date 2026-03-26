@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { apiFetch } from "../api/apiClient";
+import { apiFetch, getWsUrl } from "../api/apiClient";
 import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
 
@@ -23,7 +23,7 @@ export default function Notifications() {
   useEffect(() => {
     fetchNotifications();
 
-    const socket = new SockJS("http://localhost:8080/ws");
+    const socket = new SockJS(getWsUrl());
     const client = Stomp.over(socket);
     client.debug = () => { };
     client.connect({}, () => {

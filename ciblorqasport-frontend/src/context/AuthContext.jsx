@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch } from "../api/apiClient";
+import { apiFetch, getWsUrl } from "../api/apiClient";
 import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
 
@@ -56,7 +56,7 @@ export function AuthProvider({ children }) {
     if (user) {
       refreshUnreadCount();
 
-      const socket = new SockJS("http://localhost:8080/ws");
+      const socket = new SockJS(getWsUrl());
       const client = Stomp.over(socket);
       client.debug = () => { };
       client.connect({}, () => {

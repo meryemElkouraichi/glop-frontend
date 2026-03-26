@@ -1,9 +1,14 @@
 import axios from "axios";
 
 export const apiClient = axios.create({
-  baseURL: "http://localhost:8080/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080/api",
   timeout: 7000,
 });
+
+export const getWsUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiUrl.replace('/api', '/ws');
+};
 
 // Helper générique
 export async function apiFetch(path, opts = {}) {

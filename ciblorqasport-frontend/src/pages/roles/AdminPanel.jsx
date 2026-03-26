@@ -16,6 +16,7 @@ export default function AdminPanel() {
     localStorage.setItem("adminPanelTab", tab);
   }, [tab]);
 
+
   // Competition form state
   const [compName, setCompName] = useState("");
   const [compStart, setCompStart] = useState("");

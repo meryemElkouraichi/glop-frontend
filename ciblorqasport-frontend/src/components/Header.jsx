@@ -14,6 +14,8 @@ const getMainDashboard = (roles) => {
   return "/spectateur";
 };
 
+import { trackAction } from "../api/useAnalytics";
+
 export default function Header() {
   const { user, logout, unreadCount } = useAuth();
   const navigate = useNavigate();
@@ -30,7 +32,10 @@ export default function Header() {
 
       <div className="flex items-center space-x-6">
         <button
-          onClick={() => navigate("/notifications")}
+          onClick={() => {
+            trackAction("Notifications");
+            navigate("/notifications");
+          }}
           className="relative group p-2 rounded-full hover:bg-slate-100 transition-colors"
         >
           <span className="text-xl opacity-70 group-hover:opacity-100 transition-opacity">🔔</span>
@@ -52,11 +57,15 @@ export default function Header() {
           </div>
 
           <button
-            onClick={() => navigate("/profile")}
+            onClick={() => {
+              trackAction("Profil");
+              navigate("/profile");
+            }}
             className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold hover:bg-primary/20 transition-colors"
           >
             {user.prenom[0]}{user.nom[0]}
           </button>
+
 
           <button
             onClick={logout}
