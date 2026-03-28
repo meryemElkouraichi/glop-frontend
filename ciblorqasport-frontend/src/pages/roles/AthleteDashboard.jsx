@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { apiFetch } from "../../api/apiClient";
 import AthleteRequestSection from "../../components/AthleteRequestSection";
@@ -55,25 +55,18 @@ export default function AthleteDashboard() {
               },
             });
             setTrackingActive(true);
-            console.log("Location updated:", position.coords.latitude, position.coords.longitude);
           } catch (err) {
-            console.error("Failed to update location", err);
             setTrackingActive(false);
           }
         },
         (err) => {
-          console.error("Geolocation error", err);
           setTrackingActive(false);
         }
       );
     };
 
-    // Initial update
     sendLocation();
-
-    // Periodic update every 30 seconds
     const interval = setInterval(sendLocation, 30000);
-
     return () => clearInterval(interval);
   }, [user]);
 
@@ -123,24 +116,32 @@ export default function AthleteDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {epreuves.map((ep) => (
+<<<<<<< HEAD
               <div key={`${ep.typeParticipation}-${ep.id}`} className={`glass-card p-7 rounded-3xl transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 border border-white/40 flex flex-col relative overflow-hidden ${ep.statusParticipation === 'DESISTE' ? 'opacity-60 grayscale' : ''}`}>
+=======
+              <div key={ep.id} className={`glass-card p-7 rounded-3xl transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 border border-white/40 flex flex-col relative overflow-hidden ${ep.statusParticipation === 'DESISTE' ? 'opacity-60 grayscale' : ''}`}>
+>>>>>>> main
 
-                {ep.statusEpreuve === 'Terminé' && (
-                  <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-tighter z-20 shadow-sm">
-                    Terminée
+                  {ep.statusEpreuve === 'Terminé' && (
+                    <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-tighter z-20 shadow-sm">
+                      Terminée
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-start mb-5 relative z-10">
+                    <span className="text-[10px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg uppercase tracking-widest border border-primary/5">
+                      {ep.discipline}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase border ${ep.statusParticipation === 'DESISTE' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                      {ep.statusParticipation === 'DESISTE' ? 'Forfait' : 'Inscrit'}
+                    </span>
                   </div>
-                )}
 
-                <div className="flex justify-between items-start mb-5 relative z-10">
-                  <span className="text-[10px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg uppercase tracking-widest border border-primary/5">
-                    {ep.discipline}
-                  </span>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase border ${ep.statusParticipation === 'DESISTE' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                    {ep.statusParticipation === 'DESISTE' ? 'Forfait' : 'Inscrit'}
-                  </span>
-                </div>
-
+<<<<<<< HEAD
                 <h4 className="text-xl font-bold text-slate-800 mb-1 leading-tight" style={{ textAlign: "center", color: "#f1f3f8ff" }}>{ep.nom}</h4>
+=======
+                <h4 className="text-xl font-bold text-slate-800 mb-1 leading-tight">{ep.nom}</h4>
+>>>>>>> main
                 <p className="text-xs font-medium text-slate-400 mb-5">{ep.phase} • {ep.genre}</p>
 
                 <div className="space-y-4 mb-8 flex-1">
@@ -152,63 +153,66 @@ export default function AthleteDashboard() {
                   </div>
                 </div>
 
-                {ep.statusEpreuve === 'Terminé' && ep.resultat ? (
-                  <div className="mb-6 p-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/10 shadow-lg group">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Résultat Officiel</span>
-                      {ep.resultat.isForfait && <span className="text-[10px] font-black text-red-400 uppercase">FORFAIT</span>}
-                    </div>
-                    <div className="flex items-end space-x-2">
-                      <span className="text-3xl font-black text-white italic">#{ep.resultat.rang}</span>
-                      <span className="text-white/60 text-xs mb-1 font-medium">au classement</span>
-                    </div>
-                    {ep.resultat.score !== null && (
-                      <div className="mt-2 text-primary-light text-sm font-bold">
-                        {ep.resultat.score} buts marqués
-                      </div>
-                    )}
-                    {ep.resultat.tempsSecondes !== null && (
-                      <div className="mt-2 text-white/90 text-sm font-mono">
-                        ⏱️ {Math.floor(ep.resultat.tempsSecondes / 60)}m {Math.round(ep.resultat.tempsSecondes % 60)}s
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mb-6 p-3 bg-amber-50 rounded-2xl border border-amber-100/50">
-                    <div className="flex items-start">
-                      <span className="text-base mr-2">💡</span>
-                      <p className="text-[11px] text-amber-800 leading-tight font-medium">
-                        Rappel : Soyez sur place au plus tard à <span className="font-bold">{(parseInt(ep.heureDebut.split(':')[0]) - 2)}:00</span> pour l'accréditation.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2">
-                  {ep.statusParticipation !== 'DESISTE' && ep.statusEpreuve === 'Planifié' && (
-                    <button
-                      onClick={() => handleResigne(ep.id, ep.nom)}
-                      className="w-full py-3 rounded-2xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 hover:border-red-300 transition-all duration-300 shadow-sm"
-                    >
-                      Se résilier de l'épreuve
-                    </button>
-                  )}
-                  {ep.statusEpreuve === 'Terminé' && (
-                    <div className="w-full py-3 rounded-2xl bg-slate-100 text-slate-400 text-xs font-bold text-center border border-slate-200 cursor-not-allowed">
-                      Épreuve verrouillée
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+  {
+    ep.statusEpreuve === 'Terminé' && ep.resultat ? (
+      <div className="mb-6 p-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/10 shadow-lg group">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Résultat Officiel</span>
+          {ep.resultat.isForfait && <span className="text-[10px] font-black text-red-400 uppercase">FORFAIT</span>}
+        </div>
+        <div className="flex items-end space-x-2">
+          <span className="text-3xl font-black text-white italic">#{ep.resultat.rang}</span>
+          <span className="text-white/60 text-xs mb-1 font-medium">au classement</span>
+        </div>
+        {ep.resultat.score !== null && (
+          <div className="mt-2 text-primary-light text-sm font-bold">
+            {ep.resultat.score} buts marqués
+          </div>
+        )}
+        {ep.resultat.tempsSecondes !== null && (
+          <div className="mt-2 text-white/90 text-sm font-mono">
+            ⏱️ {Math.floor(ep.resultat.tempsSecondes / 60)}m {Math.round(ep.resultat.tempsSecondes % 60)}s
           </div>
         )}
       </div>
-
-      <div className="mt-12 pt-8 border-t border-slate-200">
-        <h3 className="text-xl font-bold text-slate-800 mb-6 font-outfit">Postuler à d'autres disciplines</h3>
-        <AthleteRequestSection />
+    ) : (
+    <div className="mb-6 p-3 bg-amber-50 rounded-2xl border border-amber-100/50">
+      <div className="flex items-start">
+        <span className="text-base mr-2">💡</span>
+        <p className="text-[11px] text-amber-800 leading-tight font-medium">
+          Rappel : Soyez sur place au plus tard à <span className="font-bold">{(parseInt(ep.heureDebut.split(':')[0]) - 2)}:00</span> pour l'accréditation.
+        </p>
       </div>
     </div>
+  )
+  }
+
+  <div className="pt-2">
+    {ep.statusParticipation !== 'DESISTE' && ep.statusEpreuve === 'Planifié' && (
+      <button
+        onClick={() => handleResigne(ep.id, ep.nom)}
+        className="w-full py-3 rounded-2xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 hover:border-red-300 transition-all duration-300 shadow-sm"
+      >
+        Se résilier de l'épreuve
+      </button>
+    )}
+    {ep.statusEpreuve === 'Terminé' && (
+      <div className="w-full py-3 rounded-2xl bg-slate-100 text-slate-400 text-xs font-bold text-center border border-slate-200 cursor-not-allowed">
+        Épreuve verrouillée
+      </div>
+    )}
+  </div>
+              </div >
+            ))
+}
+          </div >
+        )}
+      </div >
+
+  <div className="mt-12 pt-8 border-t border-slate-200">
+    <h3 className="text-xl font-bold text-slate-800 mb-6 font-outfit">Postuler à d'autres disciplines</h3>
+    <AthleteRequestSection />
+  </div>
+    </div >
   );
 }
