@@ -140,7 +140,7 @@ export default function AthleteDashboard() {
                   </span>
                 </div>
 
-                <h4 className="text-xl font-bold text-slate-800 mb-1 leading-tight">{ep.nom}</h4>
+                <h4 className="text-xl font-bold text-slate-800 mb-1 leading-tight" style={{ textAlign: "center", color: "#f1f3f8ff" }}>{ep.nom}</h4>
                 <p className="text-xs font-medium text-slate-400 mb-5">{ep.phase} • {ep.genre}</p>
 
                 <div className="space-y-4 mb-8 flex-1">

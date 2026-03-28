@@ -6,6 +6,7 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
   const { user } = useAuth();
   const [nation, setNation] = useState("");
   const [countries, setCountries] = useState([]);
+  const [selectedDiscipline, setSelectedDiscipline] = useState(""); // Nouveau: Nom groupé (discipline + catégorie)
   const [sportId, setSportId] = useState("");
   const [genre, setGenre] = useState(""); // masculin / feminin
   const [handicap, setHandicap] = useState(false);
@@ -40,8 +41,71 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
     fetchPays();
   }, []);
 
+  // Gestion du groupement des sports par discipline + catégorie
+  const availableSports = sports.filter((s) => {
+    const alreadyRequested = allRequests.some(
+      (req) => req.sport?.id === s.id && req.status !== "refusee"
+    );
+    return !alreadyRequested;
+  });
+
+  const groupedDisciplines = Array.from(
+    new Set(sports.map((s) => `${s.discipline} (${s.categorie})`))
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Normalisation des genres pour le matching (Hommes -> masculin, etc.)
+  const normalizeGenre = (g) => {
+    if (!g) return "";
+    const lower = g.toLowerCase();
+    if (lower.startsWith("hom") || lower.startsWith("masc")) return "masculin";
+    if (lower.startsWith("fem")) return "feminin";
+    if (lower.startsWith("mix")) return "mixte";
+    return lower;
+  };
+
+  // TOUS les genres disponibles pour la discipline sélectionnée (non filtrés par requests)
+  const availableGenresForDiscipline = sports
+    .filter((s) => `${s.discipline} (${s.categorie})` === selectedDiscipline)
+    .map((s) => s.genre);
+
+  const normalizedAvailableGenres = availableGenresForDiscipline.map(normalizeGenre);
+
+  // Mise à jour de l'ID du sport quand la discipline et le genre sont choisis
+  useEffect(() => {
+    if (selectedDiscipline && genre) {
+      const match = sports.find(
+        (s) =>
+          `${s.discipline} (${s.categorie})` === selectedDiscipline &&
+          normalizeGenre(s.genre) === genre
+      );
+
+      if (match) {
+        // Vérifier si déjà demandé
+        const alreadyRequested = allRequests.some(
+          (req) => req.sport?.id === match.id && req.status !== "refusee"
+        );
+        if (alreadyRequested) {
+          setSportId("");
+          setError("Vous avez déjà une demande en cours ou acceptée pour cette discipline et ce genre.");
+        } else {
+          setSportId(match.id);
+          setError("");
+        }
+      } else {
+        setSportId("");
+      }
+    } else {
+      setSportId("");
+      setError("");
+    }
+  }, [selectedDiscipline, genre, sports, allRequests]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!sportId) {
+      setError("Cette discipline n'est pas disponible pour le genre sélectionné.");
+      return;
+    }
     setError("");
     setSuccess("");
     setLoading(true);
@@ -63,6 +127,7 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
 
       setSuccess("Votre demande a été envoyée avec succès.");
       setNation("");
+      setSelectedDiscipline("");
       setSportId("");
       setGenre("");
       setHandicap(false);
@@ -99,26 +164,20 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
         <label className="block text-sm font-medium">Discipline</label>
         <select
           className="w-full border rounded p-2"
-          value={sportId}
-          onChange={(e) => setSportId(e.target.value)}
+          value={selectedDiscipline}
+          onChange={(e) => {
+            setSelectedDiscipline(e.target.value);
+            setGenre(""); // Reset genre when discipline changes
+          }}
           required
-          disabled={loading || sports.length === 0}
+          disabled={loading || groupedDisciplines.length === 0}
         >
           <option value="">-- Choisissez une discipline --</option>
-          {sports
-            .filter((s) => {
-              // On garde le sport seulement si l'utilisateur n'a pas déjà une demande
-              // en cours ou acceptée pour cette discipline précise.
-              const alreadyRequested = allRequests.some(
-                (req) => req.sport?.id === s.id && req.status !== "refusee"
-              );
-              return !alreadyRequested;
-            })
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.discipline} ({s.categorie}, {s.genre})
-              </option>
-            ))}
+          {groupedDisciplines.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -129,11 +188,23 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
           value={genre}
           onChange={(e) => setGenre(e.target.value)}
           required
-          disabled={loading}
+          disabled={loading || !selectedDiscipline}
         >
           <option value="">-- Choisissez votre genre --</option>
-          <option value="masculin">Masculin</option>
-          <option value="feminin">Féminin</option>
+          {normalizedAvailableGenres.includes("masculin") && (
+            <option value="masculin">Homme</option>
+          )}
+          {normalizedAvailableGenres.includes("feminin") && (
+            <option value="feminin">Femme</option>
+          )}
+          {normalizedAvailableGenres.includes("mixte") && (
+            <option value="mixte">Mixte</option>
+          )}
+
+          {/* Fallback auto pour tout autre label inconnu */}
+          {availableGenresForDiscipline.filter(g => !["masculin", "feminin", "mixte"].includes(normalizeGenre(g))).map(g => (
+            <option key={g} value={g}>{g}</option>
+          ))}
         </select>
       </div>
 
@@ -158,13 +229,13 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
         />
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
-      {success && <p className="text-green-600">{success}</p>}
+      {error && <p className="text-red-600 font-medium text-sm">{error}</p>}
+      {success && <p className="text-green-600 font-medium text-sm">{success}</p>}
 
       <button
         type="submit"
-        disabled={loading}
-        className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+        disabled={loading || (selectedDiscipline && !sportId)}
+        className="bg-blue-600 text-white px-4 py-3 rounded-xl font-bold w-full hover:bg-blue-700 transition-all disabled:opacity-50 shadow-md"
       >
         {loading ? "Envoi..." : "Envoyer la demande"}
       </button>

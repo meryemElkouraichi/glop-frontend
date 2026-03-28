@@ -40,18 +40,65 @@ export default function ResultatsEpreuve() {
             const resRes = await apiFetch(`/epreuves/${id}/resultats`);
             setResultats(resRes.data || []);
 
-            // Initialize inputs from existing results if they exist
+            // Initialize inputs. Strategy: loop over ALL participants to ensure 
+            // even those with no Resultat record but status="DESISTE" are marked was forfaits.
             const initialInputs = {};
-            (resRes.data || []).forEach(res => {
-                const pId = res.athlete?.id || res.equipe?.id;
-                if (pId) {
-                    let val = "";
+            (partRes.data || []).forEach(p => {
+                const res = (resRes.data || []).find(r => (r.athlete?.id === p.id || r.equipe?.id === p.id));
+                const isForfait = res?.forfait || res?.isForfait || p.status === "DESISTE";
+
+                let val = "";
+                if (res) {
                     if (res.tempsSecondes != null) val = formatSecondsToTime(res.tempsSecondes);
                     if (res.score != null) val = res.score.toString();
                     if (res.points != null) val = res.points.toString();
-                    initialInputs[pId] = { value: val, matchId: res.matchId };
+                }
+
+                initialInputs[p.id] = {
+                    value: val,
+                    matchId: res?.matchId,
+                    isForfait: isForfait
+                };
+            });
+
+            // 4. Auto-fill 3-0 for tournament matches with forfaits
+            const discL = (epRes.data?.discipline || "").toLowerCase();
+            const isMatchBased = discL.includes("water") || discL.includes("polo");
+
+            if (isMatchBased) {
+                const matches = {};
+                (partRes.data || []).forEach(p => {
+                    const res = (resRes.data || []).find(r => (r.athlete?.id === p.id || r.equipe?.id === p.id));
+                    const isForfait = res?.forfait || res?.isForfait || p.status === "DESISTE";
+                    const mId = res?.matchId;
+                    if (mId) {
+                        if (!matches[mId]) matches[mId] = [];
+                        matches[mId].push({ pId: p.id, isForfait: isForfait });
+                    }
+                });
+
+                Object.values(matches).forEach(mParticipants => {
+                    if (mParticipants.length === 2) {
+                        const f1 = mParticipants[0].isForfait;
+                        const f2 = mParticipants[1].isForfait;
+                        if (f1 && !f2) {
+                            initialInputs[mParticipants[0].pId] = { ...initialInputs[mParticipants[0].pId], value: "0", isForfait: true };
+                            initialInputs[mParticipants[1].pId] = { ...initialInputs[mParticipants[1].pId], value: "3", shouldDisable: true };
+                        } else if (!f1 && f2) {
+                            initialInputs[mParticipants[0].pId] = { ...initialInputs[mParticipants[0].pId], value: "3", shouldDisable: true };
+                            initialInputs[mParticipants[1].pId] = { ...initialInputs[mParticipants[1].pId], value: "0", isForfait: true };
+                        }
+                    }
+                });
+            }
+
+            // 5. General fallback: for any forfait not yet filled, set value to "0"
+            Object.keys(initialInputs).forEach(pId => {
+                if (initialInputs[pId].isForfait && (initialInputs[pId].value === "" || initialInputs[pId].value == null)) {
+                    initialInputs[pId].value = "0";
                 }
             });
+
             setInputs(initialInputs);
 
         } catch (err) {
@@ -130,6 +177,7 @@ export default function ResultatsEpreuve() {
 
                 const result = isTeam ? { equipeId: pId } : { athleteId: pId };
                 result.matchId = matchId;
+                result.isForfait = inputs[pId].isForfait || false;
 
                 const disc = (epreuve?.discipline || epreuve?.type || "").toLowerCase();
 
@@ -296,8 +344,13 @@ export default function ResultatsEpreuve() {
                                                         {matches[mId].map(p => (
                                                             <div key={p.type + p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm focus-within:ring-1 focus-within:ring-blue-500 transition-all">
                                                                 <div className="flex-1">
-                                                                    <div className="font-semibold text-gray-800">
+                                                                    <div className="font-semibold text-gray-800 flex items-center gap-2">
                                                                         {p.type === 'EQUIPE' ? p.nom : `${p.prenom} ${p.nom}`}
+                                                                        {inputs[p.id]?.isForfait && (
+                                                                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase border border-red-200">
+                                                                                Forfait
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                     <div className="text-xs text-gray-500 uppercase font-medium">{p.nation}</div>
                                                                 </div>
@@ -305,11 +358,11 @@ export default function ResultatsEpreuve() {
                                                                     <input
                                                                         type={inputType}
                                                                         step={inputType === "number" && inputLabel === "Points" ? "0.01" : "1"}
-                                                                        placeholder={inputLabel}
-                                                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono"
+                                                                        placeholder={inputs[p.id]?.isForfait ? "0" : inputLabel}
+                                                                        className={`w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:cursor-not-allowed text-right font-mono ${inputs[p.id]?.isForfait || inputs[p.id]?.shouldDisable ? "opacity-50 text-gray-400" : ""}`}
                                                                         value={inputs[p.id]?.value || ""}
                                                                         onChange={(e) => handleInputChange(p.id, e.target.value, mId !== "no-match" ? mId : null)}
-                                                                        disabled={isValide}
+                                                                        disabled={isValide || inputs[p.id]?.isForfait || inputs[p.id]?.shouldDisable}
                                                                     />
                                                                 </div>
                                                             </div>
