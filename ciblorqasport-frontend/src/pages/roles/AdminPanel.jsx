@@ -8,6 +8,7 @@ export default function AdminPanel() {
   const { user } = useAuth();
   const location = useLocation();
   const [analytics, setAnalytics] = useState(null);
+  const [desistements, setDesistements] = useState([]);
 
   // active tab: 'home' | 'competition' | 'epreuve' | 'ceremonie' | 'analytics' | 'alerte'
   const [tab, setTab] = useState(localStorage.getItem("adminPanelTab") || "home");
@@ -335,6 +336,15 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchDesistements = async () => {
+    try {
+      const res = await apiFetch("/desistements/commissaire/en-attente");
+      setDesistements(res.data);
+    } catch (err) {
+      console.error("Erreur desistements", err);
+    }
+  };
+
   useEffect(() => {
     if (tab === "competition") loadCompetitions();
     if (tab === "epreuve") loadEpreuves();
@@ -344,6 +354,7 @@ export default function AdminPanel() {
       loadCeremonies();
     }
     if (tab === "alerte") loadIncidents();
+    if (tab === "desistement") fetchDesistements();
   }, [tab]);
 
   useEffect(() => {
@@ -596,6 +607,12 @@ export default function AdminPanel() {
                 onClick={() => setTab("volontaire")}
               >
                 Demandes Volontaires
+              </button>
+              <button
+                className={`w-full text-left p-2 rounded ${tab === "desistement" ? "bg-blue-50 font-semibold" : "hover:bg-gray-100"}`}
+                onClick={() => setTab("desistement")}
+              >
+                Désistements
               </button>
               <button
                 className={`w-full text-left p-2 rounded ${tab === "ceremonie" ? "bg-blue-50 font-semibold" : "hover:bg-gray-100"}`}
@@ -1416,10 +1433,91 @@ export default function AdminPanel() {
               </div>
             )
           }
+          {tab === "desistement" && (
+            <div className="bg-white p-6 rounded shadow animate-in fade-in duration-500">
+              <h2 className="text-xl font-bold mb-4 flex items-center">
+                <span className="mr-2">⚖️</span> Demandes de Désistement
+              </h2>
+              <p className="text-sm text-gray-500 mb-6 font-medium italic">
+                Note : Aucune modification de résultat n'est appliquée tant que la demande n'est pas validée.
+              </p>
+              {desistements.length === 0 ? (
+                <div className="p-12 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                  <p className="text-slate-400 italic">Aucune demande de désistement en attente pour vos disciplines.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-sm">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b">
+                        <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Athlète</th>
+                        <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Épreuve / Discipline</th>
+                        <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Motif</th>
+                        <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Date Demande</th>
+                        <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {desistements.map((d) => (
+                        <tr key={d.id} className="border-b hover:bg-slate-50/80 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-800">{d.user.prenom} {d.user.nom}</div>
+                            <div className="text-xs text-slate-400">{d.user.email}</div>
+                          </td>
+                          <td className="p-4">
+                            <div className="font-medium text-blue-600">{d.epreuve.nom}</div>
+                            <div className="text-xs text-slate-400">{d.epreuve.discipline}</div>
+                          </td>
+                          <td className="p-4">
+                            <div className="text-sm text-slate-600 bg-slate-100/50 p-2.5 rounded-xl border border-slate-200/50 italic max-w-xs break-words">
+                              "{d.motif}"
+                            </div>
+                          </td>
+                          <td className="p-4 text-xs text-slate-500 font-mono">
+                            {new Date(d.dateDemande).toLocaleString('fr-FR')}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm("Approuver ce désistement ? Les résultats seront mis à jour en forfait.")) return;
+                                  try {
+                                    await apiFetch(`/desistements/${d.id}/accepter`, { method: "POST" });
+                                    alert("Désistement approuvé.");
+                                    fetchDesistements();
+                                  } catch (e) { alert("Erreur lors de l'approbation."); }
+                                }}
+                                className="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100 active:scale-95"
+                              >
+                                Approuver
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const motif = prompt("Motif du refus :");
+                                  if (!motif) return;
+                                  try {
+                                    await apiFetch(`/desistements/${d.id}/refuser?motif=${encodeURIComponent(motif)}`, { method: "POST" });
+                                    alert("Demande refusée.");
+                                    fetchDesistements();
+                                  } catch (e) { alert("Erreur lors du refus."); }
+                                }}
+                                className="px-3 py-2 bg-white text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-50 hover:border-red-300 transition-all active:scale-95"
+                              >
+                                Refuser
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </section >
 
       </div >
     </div >
   );
 }
-

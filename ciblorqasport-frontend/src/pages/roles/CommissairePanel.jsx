@@ -1,4 +1,5 @@
 import CommissaireRequests from "./CommissaireRequests";
+import CommissaireWithdrawalRequests from "./CommissaireWithdrawalRequests";
 
 export default function CommissairePanel() {
   return (
@@ -6,6 +7,10 @@ export default function CommissairePanel() {
       <h3 className="text-xl font-bold">Panel Commissaire</h3>
 
       <CommissaireRequests onlyPending={false} />
+      
+      <div className="pt-6 border-t border-slate-200">
+        <CommissaireWithdrawalRequests />
+      </div>
     </div>
   );
 }

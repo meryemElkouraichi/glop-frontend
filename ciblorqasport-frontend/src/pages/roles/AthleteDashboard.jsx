@@ -8,6 +8,9 @@ export default function AthleteDashboard() {
   const [trackingActive, setTrackingActive] = useState(false);
   const [epreuves, setEpreuves] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [motifModal, setMotifModal] = useState({ open: false, epreuveId: null, nom: "" });
+  const [motifText, setMotifText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchEpreuves = async () => {
     try {
@@ -25,15 +28,29 @@ export default function AthleteDashboard() {
     fetchEpreuves();
   }, []);
 
-  const handleResigne = async (epreuveId, nom) => {
-    if (!window.confirm(`Êtes-vous sûr de vouloir vous résilier de l'épreuve "${nom}" ?\nCette action entraînera un forfait (0-3 pour les matchs).`)) return;
+  const handleResigne = (epreuveId, nom) => {
+    setMotifModal({ open: true, epreuveId, nom });
+    setMotifText("");
+  };
+
+  const submitDesistement = async () => {
+    if (!motifText.trim()) {
+      alert("Veuillez indiquer un motif pour votre désistement.");
+      return;
+    }
 
     try {
-      await apiFetch(`/athlete/epreuves/${epreuveId}/resigne`, { method: "POST" });
-      alert("Votre désistement a été enregistré.");
+      setSubmitting(true);
+      await apiFetch(`/desistements/demande?epreuveId=${motifModal.epreuveId}&motif=${encodeURIComponent(motifText)}`, {
+        method: "POST"
+      });
+      alert("Votre demande de désistement a été envoyée au commissaire.");
+      setMotifModal({ open: false, epreuveId: null, nom: "" });
       fetchEpreuves();
     } catch (err) {
-      alert("Erreur lors du désistement.");
+      alert("Erreur lors de l'envoi de la demande.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -128,8 +145,8 @@ export default function AthleteDashboard() {
                   <span className="text-[10px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg uppercase tracking-widest border border-primary/5">
                     {ep.discipline}
                   </span>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase border ${ep.statusParticipation === 'DESISTE' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                    {ep.statusParticipation === 'DESISTE' ? 'Forfait' : 'Inscrit'}
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase border ${ep.statusParticipation === 'DESISTE' ? 'bg-red-50 text-red-600 border-red-100' : (ep.desistementAttente ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100')}`}>
+                    {ep.statusParticipation === 'DESISTE' ? 'Forfait' : (ep.desistementAttente ? 'Désistement en attente' : 'Inscrit')}
                   </span>
                 </div>
 
@@ -180,13 +197,18 @@ export default function AthleteDashboard() {
                 }
 
                 <div className="pt-2">
-                  {ep.statusParticipation !== 'DESISTE' && ep.statusEpreuve === 'Planifié' && (
+                  {ep.statusParticipation !== 'DESISTE' && !ep.desistementAttente && ep.statusEpreuve === 'Planifié' && (
                     <button
                       onClick={() => handleResigne(ep.id, ep.nom)}
                       className="w-full py-3 rounded-2xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 hover:border-red-300 transition-all duration-300 shadow-sm"
                     >
-                      Se résilier de l'épreuve
+                      Se désister de l'épreuve
                     </button>
+                  )}
+                  {ep.desistementAttente && (
+                    <div className="w-full py-3 rounded-2xl bg-amber-50 text-amber-700 text-xs font-bold text-center border border-amber-200">
+                      Demande de désistement en cours d'examen
+                    </div>
                   )}
                   {ep.statusEpreuve === 'Terminé' && (
                     <div className="w-full py-3 rounded-2xl bg-slate-100 text-slate-400 text-xs font-bold text-center border border-slate-200 cursor-not-allowed">
@@ -205,6 +227,57 @@ export default function AthleteDashboard() {
         <h3 className="text-xl font-bold text-slate-800 mb-6 font-outfit">Postuler à d'autres disciplines</h3>
         <AthleteRequestSection />
       </div>
-    </div >
+
+      {/* Modal Motif Désistement */}
+      {motifModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-800">Motif du désistement</h3>
+              <button 
+                onClick={() => setMotifModal({ open: false, epreuveId: null, nom: "" })}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+                title="Fermer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-slate-500 mb-4">
+                Vous demandez à vous désister de l'épreuve <span className="font-bold text-slate-700">"{motifModal.nom}"</span>. 
+                Veuillez expliquer au commissaire la raison de votre désistement.
+              </p>
+              <textarea
+                className="w-full h-32 p-4 rounded-2xl border border-slate-200 focus:border-red-300 focus:ring-4 focus:ring-red-100 transition-all outline-none resize-none text-sm text-slate-700"
+                placeholder="Ex: Blessure, empêchement majeur, etc..."
+                value={motifText}
+                onChange={(e) => setMotifText(e.target.value)}
+                autoFocus
+              ></textarea>
+            </div>
+            <div className="p-6 bg-slate-50/50 flex gap-4">
+              <button
+                onClick={() => setMotifModal({ open: false, epreuveId: null, nom: "" })}
+                className="flex-1 py-3 px-6 rounded-2xl text-slate-600 font-bold hover:bg-slate-100 transition-all"
+                disabled={submitting}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={submitDesistement}
+                className="flex-[2] py-3 px-6 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex items-center justify-center"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  "Envoyer la demande"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
