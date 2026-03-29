@@ -186,7 +186,7 @@ export default function AdminPanel() {
   const loadSports = () => {
     apiFetch("/sports/distinct").then((r) => {
       if (r && Array.isArray(r.data)) {
-        setSportList(r.data);
+        setSportList([...r.data].sort((a, b) => a.localeCompare(b)));
       }
     });
   };
@@ -194,7 +194,7 @@ export default function AdminPanel() {
   const loadCountries = () => {
     apiFetch("/pays").then((r) => {
       if (r && Array.isArray(r.data)) {
-        setCountries(r.data);
+        setCountries([...r.data].sort((a, b) => a.nom.localeCompare(b.nom)));
       }
     });
   };
@@ -202,7 +202,7 @@ export default function AdminPanel() {
   const loadDisciplines = () => {
     apiFetch("/sports/disciplines/distinct").then((r) => {
       if (r && Array.isArray(r.data)) {
-        setDisciplineList(r.data);
+        setDisciplineList([...r.data].sort((a, b) => a.localeCompare(b)));
       }
     });
   };
@@ -210,7 +210,7 @@ export default function AdminPanel() {
   const loadGenres = () => {
     apiFetch("/sports/genres/distinct").then((r) => {
       if (r && Array.isArray(r.data)) {
-        setGenreList(r.data);
+        setGenreList([...r.data].sort((a, b) => a.localeCompare(b)));
       }
     });
   };
@@ -218,7 +218,7 @@ export default function AdminPanel() {
   const loadLieux = () => {
     apiFetch("/lieux").then((r) => {
       if (r && Array.isArray(r.data)) {
-        setLieuList(r.data);
+        setLieuList([...r.data].sort((a, b) => a.nom.localeCompare(b.nom)));
       }
     });
   };
