@@ -16,29 +16,30 @@ export default function AthleteRequestForm({ onSuccess, allRequests = [] }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Récupérer les sports depuis le backend
+  // Récupérer les données initiales
   useEffect(() => {
-    const fetchSports = async () => {
+    const loadData = async () => {
+      setLoading(true);
       try {
-        const res = await apiFetch("/sports");
-        setSports(res.data);
-      } catch (err) {
-        console.error("Impossible de charger les sports", err);
-      }
-    };
-    fetchSports();
-  }, []);
+        // Chargement des pays
+        const resPays = await apiFetch("/pays");
+        if (resPays && Array.isArray(resPays.data)) {
+          setCountries(resPays.data.sort((a, b) => a.nom.localeCompare(b.nom)));
+        }
 
-  useEffect(() => {
-    const fetchPays = async () => {
-      try {
-        const res = await apiFetch("/pays");
-        setCountries(res.data);
+        // Chargement des disciplines (en utilisant l'endpoint qui marche pour l'admin)
+        const resSports = await apiFetch("/sports");
+        if (resSports && Array.isArray(resSports.data)) {
+          setSports(resSports.data);
+        }
       } catch (err) {
-        console.error("Impossible de charger les pays", err);
+        console.error("Erreur lors du chargement des données de formulaire:", err);
+        setError("Erreur de connexion au serveur.");
+      } finally {
+        setLoading(false);
       }
     };
-    fetchPays();
+    loadData();
   }, []);
 
   // Gestion du groupement des sports par discipline + catégorie
