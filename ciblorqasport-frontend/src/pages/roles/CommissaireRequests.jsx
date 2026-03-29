@@ -98,6 +98,35 @@ export default function CommissaireRequests({ onlyPending = true }) {
   const [refusedHistory, setRefusedHistory] = useState([]);
   const [selectedHistoricId, setSelectedHistoricId] = useState(null);
 
+  // Certification preview state
+  const [viewedCert, setViewedCert] = useState(null); // { url, type, nom }
+
+  const viewCertificat = async (req) => {
+    try {
+      const res = await apiFetch(`/athlete-requests/${req.id}/certificat`, {
+        method: "GET",
+        responseType: 'blob',
+        credentials: "include",
+      });
+
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const type = res.headers['content-type'] || (req.docNom?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+
+      setViewedCert({ url, type, nom: req.docNom || `certificat-${req.id}` });
+    } catch (err) {
+      console.error("Erreur lors de la lecture du certificat:", err);
+      alert("Erreur lors de l'ouverture du certificat");
+    }
+  };
+
+  const closeCertView = () => {
+    if (viewedCert?.url) {
+      window.URL.revokeObjectURL(viewedCert.url);
+    }
+    setViewedCert(null);
+  };
+
   const showDetails = async (req) => {
     setDetailsEmail(req.userEmail || null);
     setDetailsPerson({
@@ -290,9 +319,9 @@ export default function CommissaireRequests({ onlyPending = true }) {
 
                     {r.hasCertificat && (
                       <button
-                        className=" bg-gray-400  text-white px-3 py-1 rounded"
-                        onClick={() => downloadCertificat(r)}>
-                        Télécharger certificat
+                        className="bg-indigo-600 text-white px-3 py-1 rounded shadow-sm hover:bg-indigo-700 transition-colors"
+                        onClick={() => viewCertificat(r)}>
+                        Consulter certificat
                       </button>
                     )}
 
@@ -357,7 +386,7 @@ export default function CommissaireRequests({ onlyPending = true }) {
                             <p><strong>Genre:</strong> {d.genre || '—'}</p>
                             <p><strong>Handicap:</strong> {String(d.handicap)}</p>
                             {d.hasCertificat && (
-                              <p><a className="text-blue-600 underline" href="#" onClick={(e) => { e.preventDefault(); downloadCertificat(d); }}>Télécharger certificat</a></p>
+                              <p><a className="text-blue-600 underline font-semibold" href="#" onClick={(e) => { e.preventDefault(); viewCertificat(d); }}>Consulter certificat</a></p>
                             )}
                           </div>
                         )}
@@ -366,6 +395,57 @@ export default function CommissaireRequests({ onlyPending = true }) {
                   </ul>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de consultation du certificat */}
+      {viewedCert && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 leading-tight">Vérification de Conformité</h3>
+                  <p className="text-xs text-gray-500 font-medium">{viewedCert.nom}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeCertView}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+                title="Fermer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 bg-gray-100 overflow-auto flex items-center justify-center p-4">
+              {viewedCert.type.includes('pdf') ? (
+                <iframe
+                  src={viewedCert.url}
+                  className="w-full h-full rounded-lg border shadow-sm bg-white"
+                  title="Aperçu du Certificat"
+                />
+              ) : (
+                <img
+                  src={viewedCert.url}
+                  alt="Certificat"
+                  className="max-w-full max-h-full h-auto object-contain rounded-lg border shadow-sm bg-white"
+                />
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-gray-50 text-center">
+              <p className="text-xs text-gray-400 italic font-medium">
+                Vérifiez attentivement la validité du certificat (date, nom de l'athlète, aptitude médicale) avant de valider la demande.
+              </p>
             </div>
           </div>
         </div>
